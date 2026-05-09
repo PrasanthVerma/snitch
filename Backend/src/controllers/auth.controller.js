@@ -20,18 +20,19 @@ async function sendTokenResponse(user, res) {
             fullname: user.fullname,
             email: user.email,
             contact: user.contact,
-            role: user.role
+            role: user.role,
+            isSeller: user.isSeller
         }
     })
 }
 
 
 const registerUser = async (req, res) => {
-    const { fullname, email, contact, password, role } = req.body
+    const { fullname, email, contact, password, role, isSeller = false } = req.body
 
     try {
 
-        const isUserExist = await User.findOne({ $or: [{ email }, { contact }] })
+        const isUserExist = await userModel.findOne({ $or: [{ email }, { contact }] })
 
         if (isUserExist) {
             return res.status(400).json({
@@ -40,10 +41,15 @@ const registerUser = async (req, res) => {
             })
         }
 
-        const user = userModel.create({
-            fullname, email, contact, password, role
+        const user = await userModel.create({
+            fullname,
+            email,
+            contact,
+            password,
+            role,
+            isSeller: role === "seller" || Boolean(isSeller)
         })
-        await sendTokenResponse(user, res, "User registered successfully")
+        await sendTokenResponse(user, res)
 
     }
     catch (error) {

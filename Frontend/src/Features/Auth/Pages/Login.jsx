@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 const Login = () => {
     return (
@@ -9,7 +9,7 @@ const Login = () => {
                 {/* Abstract architecture image */}
                 <div
                     className="absolute inset-0 bg-cover bg-center grayscale opacity-80"
-                    style={{ backgroundImage: "url('https://images.unsplash.com/photo-1605340015525-4672e340e4f2?q=80&w=2574&auto=format&fit=crop')" }}
+                    style={{ backgroundImage: "url('/login_bg.png')" }}
                 ></div>
                 {/* Dark overlay for contrast */}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>

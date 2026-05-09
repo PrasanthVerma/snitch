@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 const Register = () => {
   return (
@@ -9,7 +9,7 @@ const Register = () => {
         {/* Dark figure/hoodie image */}
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-90 grayscale-[50%]"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1542451542907-6cf80ff362d6?q=80&w=2621&auto=format&fit=crop')" }}
+          style={{ backgroundImage: "url('/register_bg.png')" }}
         ></div>
         <div className="absolute inset-0 bg-black/30"></div>
         <div className="absolute top-12 left-12 z-10">

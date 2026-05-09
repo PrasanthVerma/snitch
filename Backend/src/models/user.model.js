@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
     contact: { type: String, required: true },
     password: { type: String, required: true },
     role: { type: String, enum: ['buyer', 'seller'], default: 'buyer' },
+    isSeller: { type: Boolean, default: false }
 }, { timestamps: true })
 
 userSchema.pre("save", async function (next) {

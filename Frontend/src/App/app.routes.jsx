@@ -1,9 +1,21 @@
 import {createBrowserRouter} from "react-router"
 import App from "./App.jsx"
+import Login from "../Features/Auth/Pages/Login"
+import Register from "../Features/Auth/Pages/Register"
 
 export const router = createBrowserRouter([
     {
         path:"/",
-        element:<App/>,
+        element:<h1>Hello World</h1>,
+    },
+    {
+        path:"/login",
+        element:<Login/>,
+    },
+    {
+        path:"/register",
+        element:<Register/>,
     }
 ])
+
+export default router;
