@@ -1,0 +1,33 @@
+import axios from "axios"
+
+const authApiInstance = axios.create({
+    baseURL: "/api/auth",
+    withCredentials: true
+})
+
+export async function register({ fullname, email, contact, password, isSeller }) {
+    try {
+        const response = await authApiInstance.post("/register", {
+            fullname,
+            email,
+            contact,
+            password,
+            isSeller
+        })
+        return response.data
+    } catch (error) {
+        console.error("error in register request", error)
+    }
+}
+
+export async function login({ email, password }) {
+    try {
+        const response = await authApiInstance.post("/login", {
+            email,
+            password,
+        })
+        return response.data
+    } catch (error) {
+        console.error("error in login request", error)
+    }
+}
