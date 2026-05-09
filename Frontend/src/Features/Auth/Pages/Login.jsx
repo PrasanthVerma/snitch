@@ -1,7 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router';
+import {useNavigate}from 'react-router'
+import {useAuth} from '../hooks/useAuth'
+import {useSelector}from 'react-redux'
+import {useState} from 'react'
 
 const Login = () => {
+
+    const {handleLogin}=useAuth();
+    const {error,loading}=useSelector(state=>state.auth)
+    const navigate = useNavigate()
+
+    const [formData, setFormData] = useState({
+        email: "",
+        password: ""
+    });
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const success = await handleLogin(formData);
+        if (success) {
+            navigate("/");
+        }
+    };
+    
     return (
         <div className="min-h-screen flex text-white bg-black font-sans">
             {/* Left side - Image & Logo */}
@@ -32,11 +59,19 @@ const Login = () => {
                     <h2 className="text-4xl font-bold mb-3 tracking-wide">LOGIN</h2>
                     <p className="text-gray-400 mb-14 text-sm">Enter your credentials to access the exclusive catalog.</p>
 
-                    <form className="space-y-8">
+                    <form className="space-y-8" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/50 text-red-500 text-xs font-semibold uppercase tracking-wider">
+                                {error}
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className="block text-[10px] font-semibold text-gray-300 uppercase tracking-[0.15em]">Email Address</label>
                             <input
                                 type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
                                 placeholder="user@valina.com"
                                 className="w-full bg-transparent border-b border-gray-700/80 py-3 text-sm focus:outline-none focus:border-[#ff5a4a] transition-colors placeholder-[#3a3a3a] text-white"
                                 required
@@ -52,6 +87,9 @@ const Login = () => {
                             </div>
                             <input
                                 type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
                                 placeholder="••••••••"
                                 className="w-full bg-transparent border-b border-gray-700/80 py-3 text-sm focus:outline-none focus:border-[#ff5a4a] transition-colors placeholder-[#3a3a3a] text-white"
                                 required
@@ -61,12 +99,15 @@ const Login = () => {
                         <div className="pt-6">
                             <button
                                 type="submit"
-                                className="w-full bg-[#ff5a4a] hover:bg-[#ff4331] text-white py-4 px-4 font-bold text-xs uppercase tracking-widest flex justify-center items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,90,74,0.3)]"
+                                disabled={loading}
+                                className="w-full bg-[#ff5a4a] hover:bg-[#ff4331] disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-4 px-4 font-bold text-xs uppercase tracking-widest flex justify-center items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,90,74,0.3)] disabled:hover:shadow-none"
                             >
-                                SIGN IN
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg>
+                                {loading ? 'SIGNING IN...' : 'SIGN IN'}
+                                {!loading && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                )}
                             </button>
                         </div>
                     </form>

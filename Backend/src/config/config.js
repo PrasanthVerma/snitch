@@ -13,7 +13,9 @@ if(!process.env.JWT_SECRET){
 
 const config ={
     mongoURI:process.env.MONGO_URI,
-    jwtSecret:process.env.JWT_SECRET
+    jwtSecret:process.env.JWT_SECRET,
+    googleClientId: process.env.GOOGLE_CLIENT_ID,
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
 }
 
 export default config

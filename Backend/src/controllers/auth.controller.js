@@ -96,7 +96,46 @@ const loginUser = async (req, res) => {
     }
 }
 
+const googleAuth = async (req, res) => {
+    try {
+        const email = req.user.emails && req.user.emails.length > 0 ? req.user.emails[0].value : req.user.email;
+        let user = await userModel.findOne({ email })
+
+        if (!user) {
+            user = await userModel.create({
+                fullname: req.user.displayName || "Google User",
+                email: email,
+                contact: "0000000000",
+                password: Math.random().toString(36).slice(-8),
+                role: 'buyer'
+            })
+        }
+
+        const token = await jwt.sign({ id: user._id }, config.jwtSecret, { expiresIn: "7d" })
+        res.cookie("token", token)
+
+        res.send(`
+            <script>
+                window.opener.postMessage({ type: "GOOGLE_AUTH_SUCCESS", user: ${JSON.stringify({
+                    id: user._id,
+                    fullname: user.fullname,
+                    email: user.email,
+                               contact: user.contact,
+                    role: user.role,
+                    isSeller: user.isSeller
+                })} }, "http://localhost:5173");
+                window.close();
+            </script>
+        `);
+    }
+    catch (error) {
+        console.log(error)
+        res.send(`<script>window.opener.postMessage({ type: "GOOGLE_AUTH_ERROR", error: "Authentication failed" }, "http://localhost:5173"); window.close();</script>`)
+    }
+}
+
 export default {
     registerUser,
-    loginUser
+    loginUser,
+    googleAuth
 }
