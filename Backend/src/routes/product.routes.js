@@ -11,7 +11,18 @@ const upload = multer({
 
 const router = Router()
 
+/**
+ * @route POST /api/products/add-product
+ * @desc Add a new product (Seller only)
+ * @access Private (Seller)
+ */
 router.post("/add-product", authenticateSeller, upload.array("images", 7),productController.addProduct)
+
+/**
+ * @route GET /api/products/seller/get-products
+ * @desc Get all products of a seller
+ * @access Private (Seller)
+ */
 router.get("/seller/get-products",authenticateSeller,productController.getAllProductsOfSeller)
 
 export default router
