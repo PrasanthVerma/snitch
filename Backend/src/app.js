@@ -4,10 +4,13 @@ import authRoutes from "./routes/auth.routes.js"
 import cors from "cors"
 import passport from "passport"
 import {Strategy as GoogleStrategy}  from "passport-google-oauth20"
+import productRoutes from "./routes/product.routes.js"
+import cookieParser from "cookie-parser"
 
 const app = express()
 
 app.use(passport.initialize())
+app.use(cookieParser())
 app.use(express.json())
 app.use(morgan("dev"))
 app.use(cors({
@@ -26,6 +29,7 @@ async(accessToken,refreshToken,profile,done)=>{
 ))
 
 app.use("/api/auth",authRoutes)
+app.use("/api/products",productRoutes)
 
 
 export default app 

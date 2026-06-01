@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 async function sendTokenResponse(user, res) {
     const token = await jwt.sign({
         id: user._id,
+        role:user.role
     }, config.jwtSecret, {
         expiresIn: "7d"
     })
