@@ -40,7 +40,27 @@ export const addProduct = async (req, res) => {
 
 }
 
+export const getAllProductsOfSeller = async (req, res) => {
+
+    try {
+        const seller = req.user
+        const products = await productModel.find({ seller: seller._id })
+        return res.status(200).json({
+            message: "Products fetched successfully",
+            success: true,
+            products
+        })
+    }
+    catch (err) {
+        console.log(err)
+        return res.status(500).json({
+            message: "Error in fetching products",
+            success: false
+        })
+    }
+}
 
 export default {
-    addProduct
+    addProduct,
+    getAllProductsOfSeller
 }

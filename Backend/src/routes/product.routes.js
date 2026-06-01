@@ -12,5 +12,6 @@ const upload = multer({
 const router = Router()
 
 router.post("/add-product", authenticateSeller, upload.array("images", 7),productController.addProduct)
+router.get("/seller/get-products",authenticateSeller,productController.getAllProductsOfSeller)
 
 export default router
