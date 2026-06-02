@@ -5,6 +5,7 @@ import Register from "../Features/Auth/Pages/Register"
 import CreateProducts from "../Features/Products/pages/CreateProducts.jsx"
 import Dashboard from "../Features/Products/pages/Dashboard.jsx"
 import Protected from "../Features/Auth/Components/Protected.jsx"
+import { useSelector } from "react-redux"
 
 export const router = createBrowserRouter([
     {

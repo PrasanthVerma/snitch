@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+/* Custom premium typography utilities */
+.font-luxury-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-luxury-sans {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Premium Scrollbar Styling ───────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Dark mode scrollbars (default) */
+::-webkit-scrollbar-thumb {
+  background: rgba(197, 168, 128, 0.25); /* Elegant gold overlay */
+  border-radius: 8px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 168, 128, 0.55);
+}
+
+/* Light mode scrollbar overrides */
+.bg-\[\#FAFAFA\] ::-webkit-scrollbar-thumb,
+body:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+}
+
+.bg-\[\#FAFAFA\] ::-webkit-scrollbar-thumb:hover,
+body:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
