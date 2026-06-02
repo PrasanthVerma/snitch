@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import {useNavigate}from 'react-router'
-import {useAuth} from '../hooks/useAuth'
-import {useSelector}from 'react-redux'
-import {useState} from 'react'
+import { useNavigate } from 'react-router'
+import { useAuth } from '../hooks/useAuth'
+import { useSelector } from 'react-redux'
 
 const Login = () => {
 
-    const {handleLogin}=useAuth();
-    const {error,loading}=useSelector(state=>state.auth)
+    const { handleLogin } = useAuth();
+    const { error, loading, user } = useSelector(state => state.auth)
     const navigate = useNavigate()
+
+    useEffect(() => {
+        if (user) {
+            navigate("/")
+        }
+    }, [user, navigate])
 
     const [formData, setFormData] = useState({
         email: "",
@@ -23,12 +28,12 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = await handleLogin(formData);
-        if (success) {
+        const loggedInUser = await handleLogin(formData);
+        if (loggedInUser) {
             navigate("/");
         }
     };
-    
+
     return (
         <div className="min-h-screen flex text-white bg-black font-sans">
             {/* Left side - Image & Logo */}

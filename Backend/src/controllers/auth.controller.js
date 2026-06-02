@@ -97,6 +97,33 @@ const loginUser = async (req, res) => {
     }
 }
 
+const getMe = async (req,res)=>{
+    try {
+        const user = await userModel.findById(req.user.id)
+
+        if(!user){
+            return res.status(404).json({
+                message:"User not found",
+                success:false
+            })
+        }
+
+        res.status(200).json({
+            message: "User found",
+            success: true,
+            user
+        })
+    }
+    catch (error) {
+        console.log(error)
+        res.status(500).json({
+            message: "Error in fetching user",
+            success: false,
+            error
+        })
+    }
+}
+
 const googleAuth = async (req, res) => {
     try {
         const email = req.user.emails && req.user.emails.length > 0 ? req.user.emails[0].value : req.user.email;
@@ -138,5 +165,6 @@ const googleAuth = async (req, res) => {
 export default {
     registerUser,
     loginUser,
+    getMe,
     googleAuth
 }

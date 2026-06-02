@@ -1,4 +1,4 @@
-import { register, login, googleAuth } from "../services/auth.api.js"
+import { register, login, getMe, googleAuth } from "../services/auth.api.js"
 import { useDispatch } from "react-redux"
 import { setError, setLoading, setUser } from "../store/auth.slice.js"
 
@@ -20,14 +20,32 @@ export const useAuth = () => {
 
     const handleLogin = async ({ email, password }) => {
         dispatch(setLoading(true))
+        dispatch(setError(null))
         try {
             const response = await login({ email, password })
+            if (!response?.user) {
+                throw new Error("Login did not return user data")
+            }
             dispatch(setUser(response.user))
-            return true;
+            return response.user
         } catch (err) {
             dispatch(setError(err?.response?.data?.message || err.message))
-            return false;
+            return null
         } finally {
+            dispatch(setLoading(false))
+        }
+    }
+
+    const handleGetMe = async () => {
+        dispatch(setLoading(true))
+        try {
+            const response = await getMe()
+            dispatch(setUser(response.user))
+        }
+        catch (err) {
+            dispatch(setError(err?.response?.data?.message || err.message))
+        }
+        finally {
             dispatch(setLoading(false))
         }
     }
@@ -46,5 +64,5 @@ export const useAuth = () => {
         }
     }
 
-    return { handleRegister, handleLogin, handleGoogleAuth }
+    return { handleRegister, handleLogin, handleGetMe, handleGoogleAuth }
 }   

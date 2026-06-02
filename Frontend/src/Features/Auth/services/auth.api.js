@@ -25,6 +25,11 @@ export async function login({ email, password }) {
     return response.data
 }
 
+export async function getMe(){
+    const response = await authApiInstance.get("/getme")
+    return response.data
+}
+
 export async function googleAuth() {
     return new Promise((resolve, reject) => {
         const popup = window.open("http://localhost:3000/api/auth/google", "googleAuth", "width=500,height=600");
