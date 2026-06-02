@@ -30,6 +30,10 @@ export async function getMe(){
     return response.data
 }
 
+export async function logout(){
+    const response = await authApiInstance.post("/logout")
+}
+
 export async function googleAuth() {
     return new Promise((resolve, reject) => {
         const popup = window.open("http://localhost:3000/api/auth/google", "googleAuth", "width=500,height=600");

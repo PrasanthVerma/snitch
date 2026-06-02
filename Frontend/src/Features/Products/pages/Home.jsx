@@ -2,12 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useSelector } from "react-redux"
 import { useNavigate, Link } from "react-router"
 import { useProduct } from "../hooks/useProduct.js"
+import { useAuth } from '../../Auth/hooks/useAuth.js'
 
 const Home = () => {
   const navigate = useNavigate()
   const products = useSelector((state) => state.product.allProducts) || []
   const user = useSelector((state) => state.auth.user)
   const { fetchAllProducts } = useProduct()
+  const {handleLogout} = useAuth()
 
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -155,7 +157,7 @@ const Home = () => {
             </button>
 
             {/* Dashboard Shortcut link (if authenticated as seller/user) */}
-            {user ? (
+            {user?.role === 'seller' ? (
               <Link
                 to="/seller/dashboard"
                 className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 hidden sm:inline-flex ${
@@ -166,31 +168,20 @@ const Home = () => {
               >
                 Seller Portal
               </Link>
-            ) : (
-              <Link
-                to="/register"
-                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 hidden sm:inline-flex ${
-                  isDarkMode
-                    ? 'bg-[#151515] border border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
-                    : 'bg-white border border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
-                }`}
-              >
-                Become a Seller
-              </Link>
-            )}
+            ) : null}
 
             {/* Login/Logout Button */}
             {user ? (
-              <Link
-                to="/login"
-                className={`px-5 py-2 rounded-xl font-medium text-xs tracking-wider transition-all duration-300 select-none ${
+              <button
+                onClick={handleLogout}
+                className={`px-5 py-2 rounded-xl font-medium text-xs tracking-wider transition-all duration-300 select-none cursor-pointer ${
                   isDarkMode
                     ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5]'
                     : 'bg-black text-white hover:bg-[#1C1C1E]'
                 }`}
               >
-                Log In
-              </Link>
+                Log Out
+              </button>
             ) : (
               <Link
                 to="/login"
@@ -243,12 +234,6 @@ const Home = () => {
             >
               Shop Collection
             </a>
-            <Link
-              to="/register"
-              className="px-8 py-3.5 rounded-xl font-semibold text-xs tracking-wider border border-white/20 text-white hover:bg-white/5 transition-all duration-300"
-            >
-              Become a Seller
-            </Link>
           </div>
         </div>
       </section>

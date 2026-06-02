@@ -1,4 +1,4 @@
-import { register, login, getMe, googleAuth } from "../services/auth.api.js"
+import { register, login, getMe, googleAuth, logout } from "../services/auth.api.js"
 import { useDispatch } from "react-redux"
 import { setError, setLoading, setUser } from "../store/auth.slice.js"
 
@@ -65,9 +65,21 @@ export const useAuth = () => {
         }
     }
 
+    const handleLogout = async () => {
+        dispatch(setLoading(true))
+        try {
+            await logout()
+            dispatch(setUser(null))
+        } catch (err) {
+            dispatch(setError(err?.response?.data?.message || err.message))
+        } finally {
+            dispatch(setLoading(false))
+        }
+    }
+
     const clearError = () => {
         dispatch(setError(null))
     }
 
-    return { handleRegister, handleLogin, handleGetMe, handleGoogleAuth, clearError }
+    return { handleRegister, handleLogin, handleGetMe, handleGoogleAuth, handleLogout, clearError }
 }   
