@@ -6,11 +6,12 @@ import CreateProducts from "../Features/Products/pages/CreateProducts.jsx"
 import Dashboard from "../Features/Products/pages/Dashboard.jsx"
 import Protected from "../Features/Auth/Components/Protected.jsx"
 import { useSelector } from "react-redux"
+import Home from "../Features/Products/pages/Home.jsx"
 
 export const router = createBrowserRouter([
     {
         path:"/",
-        element:<h1>Hello World</h1>,
+        element:<Home/>,
     },
     {
         path:"/login",

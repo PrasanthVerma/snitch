@@ -124,6 +124,23 @@ const getMe = async (req,res)=>{
     }
 }
 
+const logoutUser = async (req,res)=>{
+    try{
+        res.clearCookie("token")
+        res.status(200).json({
+            message:"User logged out successfully",
+            success:true
+        })
+    }catch(error){
+        console.log(error)
+        res.status(500).json({
+            message: "Error in logging out user",
+            success: false,
+            error
+        })
+    }
+}
+
 const googleAuth = async (req, res) => {
     try {
         const email = req.user.emails && req.user.emails.length > 0 ? req.user.emails[0].value : req.user.email;
@@ -166,5 +183,6 @@ export default {
     registerUser,
     loginUser,
     getMe,
-    googleAuth
+    googleAuth,
+    logoutUser
 }

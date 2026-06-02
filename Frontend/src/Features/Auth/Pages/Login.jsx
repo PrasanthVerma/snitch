@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useSelector } from 'react-redux'
 
 const Login = () => {
-    const { handleLogin, handleGoogleAuth } = useAuth();
+    const { handleLogin, handleGoogleAuth, clearError } = useAuth();
     const { error, loading, user } = useSelector(state => state.auth)
     const navigate = useNavigate()
 
@@ -15,6 +15,10 @@ const Login = () => {
         email: "",
         password: ""
     });
+
+    useEffect(() => {
+        clearError()
+    }, [])
 
     useEffect(() => {
         if (user) {

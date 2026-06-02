@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router'
 
 const Register = () => {
-  const { handleRegister, handleGoogleAuth } = useAuth();
+  const { handleRegister, handleGoogleAuth, clearError } = useAuth();
   const { error, loading } = useSelector(state => state.auth);
   const navigate = useNavigate()
 
@@ -18,6 +18,10 @@ const Register = () => {
     password: "",
     isSeller: false
   });
+
+  useEffect(() => {
+    clearError()
+  }, [])
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;

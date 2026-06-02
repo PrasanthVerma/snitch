@@ -43,7 +43,8 @@ export const useAuth = () => {
             dispatch(setUser(response.user))
         }
         catch (err) {
-            dispatch(setError(err?.response?.data?.message || err.message))
+            // Background check for current session: failure simply means unauthenticated.
+            // Do not pollute user-facing error state.
         }
         finally {
             dispatch(setLoading(false))
@@ -64,5 +65,9 @@ export const useAuth = () => {
         }
     }
 
-    return { handleRegister, handleLogin, handleGetMe, handleGoogleAuth }
+    const clearError = () => {
+        dispatch(setError(null))
+    }
+
+    return { handleRegister, handleLogin, handleGetMe, handleGoogleAuth, clearError }
 }   

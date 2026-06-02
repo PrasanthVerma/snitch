@@ -28,6 +28,14 @@ router.post("/login",authController.loginUser)
  */
 router.get("/getme", authenticateUser, authController.getMe)
 
+/**
+ * @route POST /api/auth/logout
+ * @desc Logout a user
+ * @access Private
+ */
+router.post("/logout", authenticateUser, authController.logoutUser)
+
+
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );

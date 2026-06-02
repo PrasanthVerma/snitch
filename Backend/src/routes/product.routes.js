@@ -25,4 +25,11 @@ router.post("/add-product", authenticateSeller, upload.array("images", 7),produc
  */
 router.get("/seller/get-products",authenticateSeller,productController.getAllProductsOfSeller)
 
+/**
+ * @route GET /api/products
+ * @desc Get all the products
+ * @access Public
+ */
+router.get("/",productController.getAllProducts)
+
 export default router
