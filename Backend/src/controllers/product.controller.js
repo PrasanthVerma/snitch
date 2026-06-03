@@ -77,8 +77,27 @@ export const getAllProducts = async (req, res) => {
     }
 }
 
+export const getProductById =async (req,res)=>{
+    try{
+        const productId = req.params.id
+        const product = await productModel.findById(productId)
+        return res.status(200).json({
+            message: "Product fetched successfully",
+            success: true,
+            product
+        })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json({
+            message: "Error in fetching product",
+            success: false
+        })
+    }
+}
+
 export default {
     addProduct,
     getAllProductsOfSeller,
-    getAllProducts
+    getAllProducts,
+    getProductById
 }

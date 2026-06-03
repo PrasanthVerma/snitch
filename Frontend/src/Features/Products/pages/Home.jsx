@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { useSelector } from "react-redux"
+import { useSelector, useDispatch } from "react-redux"
+import { toggleTheme } from "../../../App/theme.slice.js"
 import { useNavigate, Link } from "react-router"
 import { useProduct } from "../hooks/useProduct.js"
 import { useAuth } from '../../Auth/hooks/useAuth.js'
@@ -10,8 +11,9 @@ const Home = () => {
   const user = useSelector((state) => state.auth.user)
   const { fetchAllProducts } = useProduct()
   const {handleLogout} = useAuth()
+  const dispatch = useDispatch()
 
-  const [isDarkMode, setIsDarkMode] = useState(true)
+  const isDarkMode = useSelector((state) => state.theme.isDarkMode)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('newest') // 'newest', 'oldest', 'price-desc', 'price-asc'
   
@@ -136,7 +138,7 @@ const Home = () => {
           <div className="flex items-center gap-4">
             {/* Theme Toggle Button */}
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => dispatch(toggleTheme())}
               className={`p-2 rounded-full border transition-all duration-300 ${
                 isDarkMode
                   ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E]'
@@ -316,6 +318,8 @@ const Home = () => {
 
               return (
                 <article
+
+                onClick={()=>navigate(`/product/${product._id}`)}
                   key={product._id}
                   className={`group border rounded-2xl overflow-hidden flex flex-col relative transition-all duration-500 ${
                     isDarkMode ? 'bg-[#0D0D0D] border-white/5 hover:border-[#C5A880]/30' : 'bg-white border-[#E5E5EA] hover:border-black/20'

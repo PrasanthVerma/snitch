@@ -32,4 +32,11 @@ router.get("/seller/get-products",authenticateSeller,productController.getAllPro
  */
 router.get("/",productController.getAllProducts)
 
+/**
+ * @route GET /api/products/product/:id
+ * @desc Get a specific product by ID
+ * @access Public
+ */
+router.get("/product/:id", productController.getProductById)
+
 export default router

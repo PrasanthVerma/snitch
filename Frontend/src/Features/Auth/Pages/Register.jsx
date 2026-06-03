@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { toggleTheme } from '../../../App/theme.slice.js';
 import { useNavigate } from 'react-router'
 
 const Register = () => {
   const { handleRegister, handleGoogleAuth, clearError } = useAuth();
   const { error, loading } = useSelector(state => state.auth);
   const navigate = useNavigate()
+  const dispatch = useDispatch()
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const isDarkMode = useSelector(state => state.theme.isDarkMode);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullname: "",
@@ -135,7 +137,7 @@ const Register = () => {
             {/* Theme Toggler */}
             <button
               type="button"
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => dispatch(toggleTheme())}
               className={`p-2 rounded-full border transition-all duration-300 ${
                 isDarkMode
                   ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E] hover:border-[#3A3A3C]'

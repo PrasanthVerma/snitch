@@ -1,4 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { toggleTheme } from '../../../App/theme.slice.js';
 import { Link } from 'react-router';
 import { useProduct } from '../hooks/useProduct.js'
 
@@ -7,6 +9,7 @@ const MAX_IMAGES = 7;
 
 const CreateProducts = () => {
   const { handleAddProduct } = useProduct()
+  const dispatch = useDispatch()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -19,7 +22,7 @@ const CreateProducts = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const isDarkMode = useSelector((state) => state.theme.isDarkMode);
   const fileInputRef = useRef(null);
 
   // ─── Form Handlers ─────────────────────────────────────────────
@@ -228,7 +231,7 @@ const CreateProducts = () => {
           <div className="flex items-center gap-4 shrink-0">
             {/* Theme Toggle Button */}
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => dispatch(toggleTheme())}
               className={`p-2 rounded-full border transition-all duration-300 ${
                 isDarkMode
                   ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E] hover:border-[#3A3A3C]'

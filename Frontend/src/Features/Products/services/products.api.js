@@ -19,3 +19,8 @@ export async function getAllProducts(){
     const response = await productApiInstance.get("/")
     return response.data
 }
+
+export async function getProductById(productId){
+    const response = await productApiInstance.get(`/product/${productId}`)
+    return response.data
+}

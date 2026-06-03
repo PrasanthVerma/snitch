@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { toggleTheme } from '../../../App/theme.slice.js';
 import { useProduct } from '../hooks/useProduct';
 
 const Dashboard = () => {
@@ -8,6 +9,7 @@ const Dashboard = () => {
   const { fetchAllProductsOfSeller } = useProduct();
   const sellerProducts = useSelector((state) => state.product.sellerProducts) || [];
   const user = useSelector((state) => state.auth.user);
+  const dispatch = useDispatch();
 
   // ─── Filter & Sort States ──────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,7 +18,7 @@ const Dashboard = () => {
   // ─── Interactive Multi-Image Index State per Product ───────────
   const [imageIndices, setImageIndices] = useState({}); // { [productId]: currentIndex }
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const isDarkMode = useSelector((state) => state.theme.isDarkMode);
 
   // Fetch seller products on mount
   useEffect(() => {
@@ -251,7 +253,7 @@ const Dashboard = () => {
               + Create
             </Link>
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => dispatch(toggleTheme())}
               className="p-1 text-gray-500 hover:text-white"
             >
               {isDarkMode ? '☀️' : '🌙'}
@@ -280,7 +282,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-3 shrink-0">
                 {/* Theme Toggler */}
                 <button
-                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  onClick={() => dispatch(toggleTheme())}
                   className={`p-2 rounded-full border transition-all duration-300 ${
                     isDarkMode
                       ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E]'
