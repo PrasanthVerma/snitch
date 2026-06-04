@@ -8,6 +8,7 @@ import Protected from "../Features/Auth/Components/Protected.jsx"
 import { useSelector } from "react-redux"
 import Home from "../Features/Products/pages/Home.jsx"
 import ProductDetails from "../Features/Products/pages/ProductDetails.jsx"
+import UpdateProduct from "../Features/Products/pages/updateProduct.jsx"
 
 export const router = createBrowserRouter([
     {
@@ -32,6 +33,10 @@ export const router = createBrowserRouter([
             {
                 path:"/seller/dashboard",
                 element:<Protected role="seller"><Dashboard /></Protected>
+            },
+            {
+                path:"/seller/update-product/:id",
+                element:<Protected role="seller"><UpdateProduct /></Protected>
             }
         ]
     },

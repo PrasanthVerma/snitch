@@ -39,4 +39,12 @@ router.get("/",productController.getAllProducts)
  */
 router.get("/product/:id", productController.getProductById)
 
+/**
+ * @route POST /api/products/update-product/:id
+ * @desc Update a product (Seller only)
+ * @access Private (Seller)
+ */
+router.post("/update-product/:id", authenticateSeller, upload.array("images", 7), productController.updateProduct)
+
+
 export default router

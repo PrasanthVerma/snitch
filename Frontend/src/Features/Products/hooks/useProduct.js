@@ -1,6 +1,6 @@
-import { addProduct, getAllProductsOfSeller, getAllProducts , getProductById} from "../services/products.api.js"
+import { addProduct, getAllProductsOfSeller, getAllProducts, getProductById, updateProduct as updateProductApi } from "../services/products.api.js"
 import { useDispatch } from "react-redux"
-import { setSellerProducts,setAllProducts } from "../store/product.slice.js"
+import { setSellerProducts, setAllProducts } from "../store/product.slice.js"
 
 export const useProduct = () => {
     const dispatch = useDispatch()
@@ -25,7 +25,7 @@ export const useProduct = () => {
         }
     }
 
-    const fetchAllProducts = async() => {
+    const fetchAllProducts = async () => {
         try {
             const response = await getAllProducts()
             dispatch(setAllProducts(response.products))
@@ -35,7 +35,7 @@ export const useProduct = () => {
         }
     }
 
-    const fetchProductById = async(productId) => {
+    const fetchProductById = async (productId) => {
         try {
             const response = await getProductById(productId)
             return response.product
@@ -45,10 +45,21 @@ export const useProduct = () => {
         }
     }
 
+    const updateProduct = async (productId, formData) => {
+
+        try {
+            const response = await updateProductApi(productId, formData)
+            return response.product
+        } catch (err) {
+            console.log(err)
+            throw err
+        }
+    }
     return {
         handleAddProduct,
         fetchAllProductsOfSeller,
         fetchAllProducts,
-        fetchProductById
+        fetchProductById,
+        updateProduct
     }
 }
