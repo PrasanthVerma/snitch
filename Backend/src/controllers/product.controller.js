@@ -160,10 +160,39 @@ export const updateProduct = async (req, res) => {
     }
 
 }
+
+// Delete a product (seller only)
+export const deleteProduct = async (req, res) => {
+    try {
+        const productId = req.params.id
+        const seller = req.user
+        const product = await productModel.findOneAndDelete({ _id: productId, seller: seller._id })
+
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found or you are not authorized to delete this product",
+                success: false
+            })
+        }
+
+        return res.status(200).json({
+            message: "Product deleted successfully",
+            success: true
+        })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json({
+            message: "Error in deleting product",
+            success: false
+        })
+    }
+}
+
 export default {
     addProduct,
     getAllProductsOfSeller,
     getAllProducts,
     getProductById,
-    updateProduct
+    updateProduct,
+    deleteProduct
 }

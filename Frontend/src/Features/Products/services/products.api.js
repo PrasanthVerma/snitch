@@ -29,3 +29,7 @@ export async function updateProduct(productId, formData) {
     const response = await productApiInstance.post(`/update-product/${productId}`, formData)
     return response.data
 }
+
+export async function deleteProduct(productId){
+    const response = await productApiInstance.delete(`/delete-product/${productId}`)
+}

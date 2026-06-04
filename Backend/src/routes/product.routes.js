@@ -16,21 +16,21 @@ const router = Router()
  * @desc Add a new product (Seller only)
  * @access Private (Seller)
  */
-router.post("/add-product", authenticateSeller, upload.array("images", 7),productController.addProduct)
+router.post("/add-product", authenticateSeller, upload.array("images", 7), productController.addProduct)
 
 /**
  * @route GET /api/products/seller/get-products
  * @desc Get all products of a seller
  * @access Private (Seller)
  */
-router.get("/seller/get-products",authenticateSeller,productController.getAllProductsOfSeller)
+router.get("/seller/get-products", authenticateSeller, productController.getAllProductsOfSeller)
 
 /**
  * @route GET /api/products
  * @desc Get all the products
  * @access Public
  */
-router.get("/",productController.getAllProducts)
+router.get("/", productController.getAllProducts)
 
 /**
  * @route GET /api/products/product/:id
@@ -46,5 +46,11 @@ router.get("/product/:id", productController.getProductById)
  */
 router.post("/update-product/:id", authenticateSeller, upload.array("images", 7), productController.updateProduct)
 
+/**
+ * @route DELETE /api/products/delete-product/:id
+ * @desc Delete a product (Seller only)
+ * @access Private (Seller)
+ */
+router.delete("/delete-product/:id", authenticateSeller, productController.deleteProduct)
 
 export default router

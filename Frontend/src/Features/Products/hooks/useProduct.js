@@ -1,4 +1,4 @@
-import { addProduct, getAllProductsOfSeller, getAllProducts, getProductById, updateProduct as updateProductApi } from "../services/products.api.js"
+import { addProduct, getAllProductsOfSeller, getAllProducts, getProductById, updateProduct as updateProductApi, deleteProduct as deleteProductApi } from "../services/products.api.js"
 import { useDispatch } from "react-redux"
 import { setSellerProducts, setAllProducts } from "../store/product.slice.js"
 
@@ -55,11 +55,23 @@ export const useProduct = () => {
             throw err
         }
     }
+
+    const deleteProduct = async (productId) => {
+        try {
+            await deleteProductApi(productId)
+            await fetchAllProductsOfSeller()
+        } catch (err) {
+            console.log(err)
+            throw err
+        }
+    }
+
     return {
         handleAddProduct,
         fetchAllProductsOfSeller,
         fetchAllProducts,
         fetchProductById,
-        updateProduct
+        updateProduct,
+        deleteProduct
     }
 }

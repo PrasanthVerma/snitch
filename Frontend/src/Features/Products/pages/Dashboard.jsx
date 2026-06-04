@@ -6,7 +6,7 @@ import { useProduct } from '../hooks/useProduct';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { fetchAllProductsOfSeller,updateProduct } = useProduct();
+  const { fetchAllProductsOfSeller, deleteProduct } = useProduct();
   const sellerProducts = useSelector((state) => state.product.sellerProducts) || [];
   const user = useSelector((state) => state.auth.user);
   const dispatch = useDispatch();
@@ -397,7 +397,7 @@ const Dashboard = () => {
                 }`}>
                 <div className="flex flex-col gap-2 min-w-0">
                   <span className={`text-[10px] font-semibold uppercase tracking-[0.08em] ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                    Total Views
+                    Total Visits
                   </span>
                   <span className={`text-3xl font-luxury-serif font-light ${isDarkMode ? 'text-white' : 'text-[#111111]'}`}>
                     {mockViews.toLocaleString()}
@@ -625,7 +625,7 @@ const Dashboard = () => {
                                       onClick={() => navigate(`/seller/update-product/${product._id}`)}
                                       className={`p-1.5 rounded transition-all ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-black hover:bg-gray-100'
                                         }`}
-                                      title="Edit Product (Redirect to creator)"
+                                      title="Edit Product"
                                     >
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -633,9 +633,9 @@ const Dashboard = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      disabled
-                                      className={`p-1.5 text-gray-600 cursor-not-allowed opacity-40`}
-                                      title="Delete Listing (Feature Coming Soon)"
+                                      onClick={() => deleteProduct(product._id)}
+                                      className={`p-1.5 text-gray-600 opacity-40`}
+                                      title="Delete Listing"
                                     >
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -691,10 +691,8 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
-
               {/* RIGHT COLUMN: Sidebar Summary & Analytics widgets (30% Width) */}
               <div className="w-full lg:flex-1 flex flex-col gap-6">
-
                 {/* WIDGET 1: Store Summary */}
                 <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
                   }`}>
@@ -734,7 +732,6 @@ const Dashboard = () => {
                     </button>
                   </div>
                 </div>
-
                 {/* WIDGET 2: Top Performing Product Spotlight */}
                 <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
                   }`}>
