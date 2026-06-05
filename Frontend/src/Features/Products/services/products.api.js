@@ -33,3 +33,8 @@ export async function updateProduct(productId, formData) {
 export async function deleteProduct(productId){
     const response = await productApiInstance.delete(`/delete-product/${productId}`)
 }
+
+export async function addVariant(productId,formData){
+    const response = await productApiInstance.post(`/seller/${productId}/add-variant`,formData)
+    return response.data
+}

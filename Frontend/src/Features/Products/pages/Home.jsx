@@ -9,7 +9,7 @@ const Home = () => {
   const navigate = useNavigate()
   const products = useSelector((state) => state.product.allProducts) || []
   const user = useSelector((state) => state.auth.user)
-  const { fetchAllProducts } = useProduct()
+  const { handleFetchAllProducts } = useProduct()
   const {handleLogout} = useAuth()
   const dispatch = useDispatch()
 
@@ -21,12 +21,43 @@ const Home = () => {
   const [imageIndices, setImageIndices] = useState({}) // { [productId]: currentImageIndex }
 
   useEffect(() => {
-    fetchAllProducts()
+    handleFetchAllProducts()
   }, [])
 
   // ─── Computations & Filtering ──────────────────────────────────
   const filteredAndSortedProducts = useMemo(() => {
-    let result = [...products]
+    let result = []
+
+    products.forEach((product) => {
+      // Add base product
+      result.push(product)
+
+      // Add variants if any
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach((variant) => {
+          let attrString = ''
+          if (variant.attributes) {
+            const vals = variant.attributes instanceof Map 
+              ? Array.from(variant.attributes.values())
+              : Object.values(variant.attributes)
+            if (vals.length > 0) {
+              attrString = ` (${vals.join(' / ')})`
+            }
+          }
+
+          result.push({
+            ...product,
+            _id: `${product._id}-${variant._id}`,
+            isVariant: true,
+            parentProductId: product._id,
+            variantId: variant._id,
+            name: `${product.name}${attrString}`,
+            price: variant.price || product.price,
+            images: variant.images && variant.images.length > 0 ? variant.images : product.images,
+          })
+        })
+      }
+    })
 
     // Search filter
     if (searchQuery.trim()) {
@@ -318,8 +349,13 @@ const Home = () => {
 
               return (
                 <article
-
-                onClick={()=>navigate(`/product/${product._id}`)}
+                  onClick={() => {
+                    if (product.isVariant) {
+                      navigate(`/product/${product.parentProductId}?v=${product.variantId}`)
+                    } else {
+                      navigate(`/product/${product._id}`)
+                    }
+                  }}
                   key={product._id}
                   className={`group border rounded-2xl overflow-hidden flex flex-col relative transition-all duration-500 ${
                     isDarkMode ? 'bg-[#0D0D0D] border-white/5 hover:border-[#C5A880]/30' : 'bg-white border-[#E5E5EA] hover:border-black/20'
@@ -331,7 +367,7 @@ const Home = () => {
                       <img
                         src={productImages[activeIndex]?.url}
                         alt={`${product.name} display ${activeIndex + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                        className="w-full h-full object-contain bg-black/5 dark:bg-[#151515] transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-6">

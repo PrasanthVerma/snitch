@@ -1,4 +1,4 @@
-import { addProduct, getAllProductsOfSeller, getAllProducts, getProductById, updateProduct as updateProductApi, deleteProduct as deleteProductApi } from "../services/products.api.js"
+import { addProduct, getAllProductsOfSeller, getAllProducts, getProductById, updateProduct as updateProductApi, deleteProduct as deleteProductApi , addVariant } from "../services/products.api.js"
 import { useDispatch } from "react-redux"
 import { setSellerProducts, setAllProducts } from "../store/product.slice.js"
 
@@ -15,7 +15,7 @@ export const useProduct = () => {
         }
     }
 
-    const fetchAllProductsOfSeller = async () => {
+    const handleFetchAllProductsOfSeller = async () => {
         try {
             const response = await getAllProductsOfSeller()
             dispatch(setSellerProducts(response.products))
@@ -25,7 +25,7 @@ export const useProduct = () => {
         }
     }
 
-    const fetchAllProducts = async () => {
+    const handleFetchAllProducts = async () => {
         try {
             const response = await getAllProducts()
             dispatch(setAllProducts(response.products))
@@ -35,7 +35,7 @@ export const useProduct = () => {
         }
     }
 
-    const fetchProductById = async (productId) => {
+    const handleFetchProductById = async (productId) => {
         try {
             const response = await getProductById(productId)
             return response.product
@@ -45,7 +45,7 @@ export const useProduct = () => {
         }
     }
 
-    const updateProduct = async (productId, formData) => {
+    const handleUpdateProduct = async (productId, formData) => {
 
         try {
             const response = await updateProductApi(productId, formData)
@@ -56,7 +56,7 @@ export const useProduct = () => {
         }
     }
 
-    const deleteProduct = async (productId) => {
+    const handleDeleteProduct = async (productId) => {
         try {
             await deleteProductApi(productId)
             await fetchAllProductsOfSeller()
@@ -66,12 +66,23 @@ export const useProduct = () => {
         }
     }
 
+    const handleAddVariant = async (productId, formData) => {
+        try {
+            const response = await addVariant(productId, formData)
+            return response.variant
+        } catch (err) {
+            console.log(err)
+            throw err
+        }
+    }
+
     return {
         handleAddProduct,
-        fetchAllProductsOfSeller,
-        fetchAllProducts,
-        fetchProductById,
-        updateProduct,
-        deleteProduct
+        handleFetchAllProducts,
+        handleFetchAllProductsOfSeller,
+        handleFetchProductById,
+        handleUpdateProduct,
+        handleDeleteProduct,
+        handleAddVariant
     }
 }

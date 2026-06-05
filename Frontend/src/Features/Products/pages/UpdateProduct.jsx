@@ -11,7 +11,7 @@ const UpdateProduct = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { fetchProductById, updateProduct } = useProduct();
+    const { handleFetchProductById, handleUpdateProduct } = useProduct();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -139,7 +139,7 @@ const UpdateProduct = () => {
             // Append new files
             newImages.forEach((img) => payload.append('images', img.file));
 
-            await updateProduct(id, payload);
+            await handleUpdateProduct(id, payload);
 
             setSuccess(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });

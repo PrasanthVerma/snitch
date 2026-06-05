@@ -188,11 +188,101 @@ export const deleteProduct = async (req, res) => {
     }
 }
 
+//Add a variant to a product (Seller only)
+export const addVariantToProduct = async (req, res) => {
+    try {
+        const productId = req.params.productId
+        const seller = req.user
+        const product = await productModel.findOne({ _id: productId, seller: seller._id })
+
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found or you are not authorized to add a variant to this product",
+                success: false
+            })
+        }
+
+        // Parse attributes
+        let attributes = {}
+        try {
+            attributes = typeof req.body.attributes === 'string' 
+                ? JSON.parse(req.body.attributes || "{}") 
+                : (req.body.attributes || {})
+        } catch (err) {
+            return res.status(400).json({
+                message: "Invalid attributes format. Must be JSON.",
+                success: false
+            })
+        }
+
+        // Validation: At least one attribute is required
+        if (!attributes || Object.keys(attributes).length === 0) {
+            return res.status(400).json({
+                message: "At least one attribute is required to differentiate the variant",
+                success: false
+            })
+        }
+
+        // Process images: if uploaded, use them; otherwise, fallback to original product images
+        let variantImages = []
+        if (req.files && req.files.length > 0) {
+            const uploaded = await Promise.all(req.files.map(async (file) => {
+                const uploadResult = await uploadFile({
+                    buffer: file.buffer,
+                    fileName: file.originalname
+                })
+                return { url: uploadResult.url }
+            }))
+            variantImages = uploaded
+        } else {
+            variantImages = product.images.map(img => ({ url: img.url }))
+        }
+
+        // Process price
+        const priceAmount = req.body.priceAmount !== undefined && req.body.priceAmount !== ""
+            ? Number(req.body.priceAmount)
+            : product.price.amount
+
+        const priceCurrency = req.body.priceCurrency || product.price.currency || "INR"
+
+        // Process stock
+        const stock = req.body.stock !== undefined && req.body.stock !== "" 
+            ? Number(req.body.stock) 
+            : 0
+
+        // Push variant to the product
+        product.variants.push({
+            images: variantImages,
+            stock,
+            attributes,
+            price: {
+                amount: priceAmount,
+                currency: priceCurrency
+            }
+        })
+
+        await product.save()
+
+        return res.status(200).json({
+            message: "Variant added successfully",
+            success: true,
+            product
+        })
+    } catch (err) {
+        console.log(err)
+        return res.status(500).json({
+            message: "Error in adding a variant to the product",
+            success: false
+        })
+    }
+}
+
 export default {
     addProduct,
     getAllProductsOfSeller,
     getAllProducts,
     getProductById,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    addVariantToProduct
 }
