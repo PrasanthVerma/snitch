@@ -25,46 +25,53 @@ const Home = () => {
   }, [])
 
   // ─── Computations & Filtering ──────────────────────────────────
-  const filteredAndSortedProducts = useMemo(() => {
-    let result = []
+  const allProductsAndVariants = useMemo(() => {
+    const list = []
+    products.forEach((p) => {
+      // Base Product
+      list.push({
+        ...p,
+        isBase: true,
+        displayId: p._id,
+        displayName: p.name,
+        displayPrice: p.price,
+        displayImages: p.images && p.images.length > 0 ? p.images : [{ url: '/luxora_login_bg.png' }]
+      })
 
-    products.forEach((product) => {
-      // Add base product
-      result.push(product)
-
-      // Add variants if any
-      if (product.variants && product.variants.length > 0) {
-        product.variants.forEach((variant) => {
-          let attrString = ''
-          if (variant.attributes) {
-            const vals = variant.attributes instanceof Map 
-              ? Array.from(variant.attributes.values())
-              : Object.values(variant.attributes)
-            if (vals.length > 0) {
-              attrString = ` (${vals.join(' / ')})`
-            }
-          }
-
-          result.push({
-            ...product,
-            _id: `${product._id}-${variant._id}`,
-            isVariant: true,
-            parentProductId: product._id,
-            variantId: variant._id,
-            name: `${product.name}${attrString}`,
-            price: variant.price || product.price,
-            images: variant.images && variant.images.length > 0 ? variant.images : product.images,
+      // Variants
+      if (p.variants && p.variants.length > 0) {
+        p.variants.forEach((v) => {
+          const rawAttrs = v.attributes instanceof Map ? Object.fromEntries(v.attributes) : (v.attributes || {})
+          const attrsStr = Object.entries(rawAttrs)
+            .map(([k, val]) => `${val}`)
+            .join(' / ')
+          
+          list.push({
+            ...p,
+            _id: `${p._id}-variant-${v._id}`, // unique React key ID
+            isBase: false,
+            variantId: v._id,
+            displayId: p._id,
+            selectedVariantId: v._id,
+            displayName: attrsStr ? `${p.name} (${attrsStr})` : p.name,
+            displayPrice: v.price || p.price,
+            displayImages: v.images && v.images.length > 0 ? v.images : (p.images && p.images.length > 0 ? p.images : [{ url: '/luxora_login_bg.png' }])
           })
         })
       }
     })
+    return list
+  }, [products])
+
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = [...allProductsAndVariants]
 
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       result = result.filter(
         (p) =>
-          p.name?.toLowerCase().includes(query) ||
+          p.displayName?.toLowerCase().includes(query) ||
           p.description?.toLowerCase().includes(query)
       )
     }
@@ -75,13 +82,13 @@ const Home = () => {
     } else if (sortBy === 'oldest') {
       result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     } else if (sortBy === 'price-desc') {
-      result.sort((a, b) => (b.price?.amount || 0) - (a.price?.amount || 0))
+      result.sort((a, b) => (b.displayPrice?.amount || 0) - (a.displayPrice?.amount || 0))
     } else if (sortBy === 'price-asc') {
-      result.sort((a, b) => (a.price?.amount || 0) - (b.price?.amount || 0))
+      result.sort((a, b) => (a.displayPrice?.amount || 0) - (b.displayPrice?.amount || 0))
     }
 
     return result
-  }, [products, searchQuery, sortBy])
+  }, [allProductsAndVariants, searchQuery, sortBy])
 
   // Helper to format currency
   const formatCurrency = (amount, currency = 'INR') => {
@@ -343,21 +350,21 @@ const Home = () => {
           /* Grid list products cards */
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredAndSortedProducts.map((product) => {
-              const productImages = product.images || []
+              const productImages = product.displayImages || []
               const activeIndex = imageIndices[product._id] || 0
               const hasMultiple = productImages.length > 1
 
               return (
                 <article
                   onClick={() => {
-                    if (product.isVariant) {
-                      navigate(`/product/${product.parentProductId}?v=${product.variantId}`)
+                    if (product.selectedVariantId) {
+                      navigate(`/product/${product.displayId}?variant=${product.selectedVariantId}`)
                     } else {
-                      navigate(`/product/${product._id}`)
+                      navigate(`/product/${product.displayId}`)
                     }
                   }}
                   key={product._id}
-                  className={`group border rounded-2xl overflow-hidden flex flex-col relative transition-all duration-500 ${
+                  className={`group border rounded-2xl overflow-hidden flex flex-col relative transition-all duration-500 cursor-pointer ${
                     isDarkMode ? 'bg-[#0D0D0D] border-white/5 hover:border-[#C5A880]/30' : 'bg-white border-[#E5E5EA] hover:border-black/20'
                   }`}
                 >
@@ -366,8 +373,8 @@ const Home = () => {
                     {productImages.length > 0 ? (
                       <img
                         src={productImages[activeIndex]?.url}
-                        alt={`${product.name} display ${activeIndex + 1}`}
-                        className="w-full h-full object-contain bg-black/5 dark:bg-[#151515] transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                        alt={`${product.displayName} display ${activeIndex + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-6">
@@ -377,7 +384,7 @@ const Home = () => {
 
                     {/* Pricing Overlay Badge */}
                     <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white tracking-wider select-none rounded-lg">
-                      {formatCurrency(product.price?.amount, product.price?.currency)}
+                      {formatCurrency(product.displayPrice?.amount, product.displayPrice?.currency)}
                     </div>
 
                     {/* Image Carousel next/prev arrows */}
@@ -424,7 +431,7 @@ const Home = () => {
                       <h4 className={`text-base font-semibold truncate leading-snug group-hover:text-[#C5A880] transition-colors ${
                         isDarkMode ? 'text-white' : 'text-black'
                       }`}>
-                        {product.name}
+                        {product.displayName}
                       </h4>
                       <p className={`text-xs font-light line-clamp-2 leading-relaxed ${
                         isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'
@@ -440,7 +447,10 @@ const Home = () => {
                       
                       <button
                         type="button"
-                        onClick={() => navigate('/login')} // Point mock detail button to checkout/auth portal
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate('/login')
+                        }} // Point mock detail button to checkout/auth portal
                         className={`text-[10px] font-bold tracking-wider uppercase group-hover:underline ${
                           isDarkMode ? 'text-[#C5A880]' : 'text-black'
                         }`}

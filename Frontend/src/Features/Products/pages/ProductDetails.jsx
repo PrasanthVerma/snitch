@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useSelector, useDispatch } from "react-redux"
 import { toggleTheme } from "../../../App/theme.slice.js"
-import { Link, useNavigate, useParams } from "react-router"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router"
 import { useProduct } from "../hooks/useProduct.js"
 import { useAuth } from '../../Auth/hooks/useAuth.js'
 
 const ProductDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { handleFetchProductById, handleFetchAllProducts } = useProduct()
   const { handleLogout } = useAuth()
   const dispatch = useDispatch()
@@ -15,7 +16,8 @@ const ProductDetails = () => {
   const [product, setProduct] = useState(null)
   const isDarkMode = useSelector((state) => state.theme.isDarkMode)
   const [activeImgIndex, setActiveImgIndex] = useState(0)
-  const [selectedAttributes, setSelectedAttributes] = useState({})
+  const [selectedSize, setSelectedSize] = useState('M')
+  const [selectedColor, setSelectedColor] = useState('Black')
   const [accordion, setAccordion] = useState({
     details: true,
     shipping: false,
@@ -25,74 +27,8 @@ const ProductDetails = () => {
   const user = useSelector((state) => state.auth.user)
   const allProducts = useSelector((state) => state.product.allProducts) || []
 
-  // Extract all unique attribute keys from product variants
-  const allAttributeKeys = useMemo(() => {
-    if (!product || !product.variants) return []
-    const keysSet = new Set()
-    product.variants.forEach((v) => {
-      if (v.attributes) {
-        const keys = v.attributes instanceof Map 
-          ? Array.from(v.attributes.keys()) 
-          : Object.keys(v.attributes)
-        keys.forEach((k) => keysSet.add(k))
-      }
-    })
-    return Array.from(keysSet)
-  }, [product])
-
-  // Get all unique values per attribute key
-  const attributeOptions = useMemo(() => {
-    const optionsMap = {}
-    allAttributeKeys.forEach((key) => {
-      const valSet = new Set()
-      product?.variants?.forEach((v) => {
-        if (v.attributes) {
-          const val = v.attributes instanceof Map 
-            ? v.attributes.get(key) 
-            : v.attributes[key]
-          if (val) valSet.add(val)
-        }
-      })
-      optionsMap[key] = Array.from(valSet)
-    })
-    return optionsMap
-  }, [product, allAttributeKeys])
-
-  // Determine active variant based on selection
-  const activeVariant = useMemo(() => {
-    if (!product || !product.variants || product.variants.length === 0) return null
-    return product.variants.find((v) => {
-      return allAttributeKeys.every((key) => {
-        const variantVal = v.attributes instanceof Map 
-          ? v.attributes.get(key) 
-          : v.attributes[key]
-        return variantVal === selectedAttributes[key]
-      })
-    })
-  }, [product, selectedAttributes, allAttributeKeys])
-
-  // Reset active image index and set selected attributes on load/product load
-  useEffect(() => {
-    if (product && product.variants && product.variants.length > 0) {
-      const params = new URLSearchParams(window.location.search)
-      const queryVariantId = params.get('v')
-      
-      let targetVariant = product.variants[0]
-      if (queryVariantId) {
-        const found = product.variants.find((v) => v._id === queryVariantId)
-        if (found) targetVariant = found
-      }
-      
-      const initialAttrs = {}
-      allAttributeKeys.forEach((key) => {
-        const val = targetVariant.attributes instanceof Map 
-          ? targetVariant.attributes.get(key) 
-          : targetVariant.attributes[key]
-        initialAttrs[key] = val || ''
-      })
-      setSelectedAttributes(initialAttrs)
-    }
-  }, [product, allAttributeKeys])
+  const [selectedVariant, setSelectedVariant] = useState(null)
+  const activeVariantId = searchParams.get('variant')
 
   async function fetchProductDetails() {
     try {
@@ -108,12 +44,39 @@ const ProductDetails = () => {
     handleFetchAllProducts()
   }, [id])
 
+  // Sync selected variant with query parameter
+  useEffect(() => {
+    if (product && product.variants && product.variants.length > 0) {
+      if (activeVariantId) {
+        const found = product.variants.find((v) => v._id === activeVariantId)
+        if (found) {
+          setSelectedVariant(found)
+          setActiveImgIndex(0)
+          return
+        }
+      }
+    }
+    setSelectedVariant(null)
+    setActiveImgIndex(0)
+  }, [activeVariantId, product])
+
   // Recommendations slice
   const recommendations = useMemo(() => {
     return allProducts
       .filter((p) => p._id !== id)
       .slice(0, 4)
   }, [allProducts, id])
+
+  // Handle dynamic variant images fallback to product images
+  const productImages = useMemo(() => {
+    if (!product) return [{ url: '/luxora_login_bg.png' }]
+    if (selectedVariant && selectedVariant.images && selectedVariant.images.length > 0) {
+      return selectedVariant.images
+    }
+    return product.images && product.images.length > 0
+      ? product.images
+      : [{ url: '/luxora_login_bg.png' }]
+  }, [product, selectedVariant])
 
   // Helper to format currency
   const formatCurrency = (amount, currency = 'INR') => {
@@ -132,21 +95,6 @@ const ProductDetails = () => {
     setAccordion((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // Handle fallback placeholder images in case the images array is empty
-  const productImages = useMemo(() => {
-    if (activeVariant && activeVariant.images && activeVariant.images.length > 0) {
-      return activeVariant.images
-    }
-    return product?.images && product.images.length > 0
-      ? product.images
-      : [{ url: '/luxora_login_bg.png' }]
-  }, [product, activeVariant])
-
-  // Reset active image index when the variant images change
-  useEffect(() => {
-    setActiveImgIndex(0)
-  }, [productImages])
-
   if (!product) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-500 ${
@@ -160,11 +108,26 @@ const ProductDetails = () => {
     )
   }
 
-  // Calculate price and currency dynamically based on active variant
-  const priceAmount = activeVariant && activeVariant.price ? activeVariant.price.amount : (product.price?.amount || 0)
-  const priceCurrency = activeVariant && activeVariant.price ? activeVariant.price.currency : (product.price?.currency || 'INR')
+  const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+  const colors = [
+    { name: 'Black', hex: '#111111' },
+    { name: 'Brown', hex: '#5C4033' },
+    { name: 'Blue', hex: '#2C3E50' }
+  ]
+
+  // Calculate dynamic variant price / stock fallback to product
+  const priceAmount = selectedVariant ? (selectedVariant.price?.amount || 0) : (product.price?.amount || 0)
+  const priceCurrency = selectedVariant ? (selectedVariant.price?.currency || 'INR') : (product.price?.currency || 'INR')
   const mrpAmount = Math.round(priceAmount * 1.5)
   const discountPercent = 33
+
+  const isOutOfStock = selectedVariant
+    ? (selectedVariant.stock ?? 0) <= 0
+    : product.variants && product.variants.length > 0
+      ? product.variants.every((v) => (v.stock ?? 0) <= 0)
+      : false
+
+  const stockCount = selectedVariant ? selectedVariant.stock : null
 
   return (
     <div className={`min-h-screen flex flex-col font-luxury-sans transition-colors duration-500 ${
@@ -316,10 +279,7 @@ const ProductDetails = () => {
           <span>/</span>
           <span className="hover:text-[#C5A880] transition-colors">Catalog</span>
           <span>/</span>
-          <span className={isDarkMode ? 'text-white' : 'text-black'}>
-            {product.name}
-            {activeVariant ? ` (${Object.values(activeVariant.attributes).join(' / ')})` : ''}
-          </span>
+          <span className={isDarkMode ? 'text-white' : 'text-black'}>{product.name}</span>
         </nav>
 
         {/* Split grid layout */}
@@ -345,7 +305,7 @@ const ProductDetails = () => {
                   <img
                     src={img.url}
                     alt={`Thumbnail ${idx + 1}`}
-                    className="w-full h-full object-contain bg-black/5 dark:bg-[#151515]"
+                    className="w-full h-full object-cover"
                   />
                 </button>
               ))}
@@ -358,7 +318,7 @@ const ProductDetails = () => {
               <img
                 src={productImages[activeImgIndex]?.url}
                 alt={product.name}
-                className="w-full h-full object-contain bg-black/5 dark:bg-[#151515] transition-transform duration-700 ease-out hover:scale-102"
+                className="w-full h-full object-cover transition-transform duration-700 ease-out hover:scale-102"
               />
 
               {/* Expand caret icon top-right */}
@@ -382,7 +342,6 @@ const ProductDetails = () => {
                 isDarkMode ? 'text-white' : 'text-black'
               }`}>
                 {product.name}
-                {activeVariant ? ` (${Object.values(activeVariant.attributes).join(' / ')})` : ''}
               </h2>
               {/* Ratings */}
               <div className="flex items-center gap-2">
@@ -415,55 +374,128 @@ const ProductDetails = () => {
               {product.description || "Classic capsule garments crafted from premium materials. Timeless visual aesthetics with a tailored, modern silhouette."}
             </p>
 
-            {/* Dynamic Variant Selectors */}
-            {allAttributeKeys.map((key) => {
-              const options = attributeOptions[key] || []
-              const selectedValue = selectedAttributes[key]
+            {/* Real Variant Switcher (if product has variants) */}
+            {product.variants && product.variants.length > 0 ? (
+              <div className="space-y-3">
+                <span className={`block text-[10px] font-bold tracking-widest uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                  Select Option:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {/* Default / Base Style */}
+                  <button
+                    type="button"
+                    onClick={() => setSearchParams({})}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 border ${
+                      !selectedVariant
+                        ? isDarkMode
+                          ? 'bg-[#C5A880] text-black border-none'
+                          : 'bg-black text-white border-none'
+                        : isDarkMode
+                          ? 'border-[#2C2C2E] hover:border-gray-500 text-white bg-transparent hover:bg-white/5'
+                          : 'border-[#E5E5EA] hover:border-black text-black bg-transparent hover:bg-black/5'
+                    }`}
+                  >
+                    Default Style
+                  </button>
 
-              return (
-                <div key={key} className="space-y-2.5">
+                  {/* Dynamic Variant Options */}
+                  {product.variants.map((v) => {
+                    const isSelected = selectedVariant && selectedVariant._id === v._id
+                    const rawAttrs = v.attributes instanceof Map ? Object.fromEntries(v.attributes) : (v.attributes || {})
+                    const label = Object.entries(rawAttrs)
+                      .map(([key, val]) => `${val}`)
+                      .join(' / ')
+
+                    return (
+                      <button
+                        type="button"
+                        key={v._id}
+                        onClick={() => setSearchParams({ variant: v._id })}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 border ${
+                          isSelected
+                            ? isDarkMode
+                              ? 'bg-[#C5A880] text-black border-none'
+                              : 'bg-black text-white border-none'
+                            : isDarkMode
+                              ? 'border-[#2C2C2E] hover:border-gray-500 text-white bg-transparent hover:bg-white/5'
+                              : 'border-[#E5E5EA] hover:border-black text-black bg-transparent hover:bg-black/5'
+                        }`}
+                      >
+                        {label || 'Variant'}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Color selection */}
+                <div className="space-y-2.5">
                   <span className={`block text-[10px] font-bold tracking-widest uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
-                    {key}: {selectedValue}
+                    Color: {selectedColor}
                   </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {options.map((val) => {
-                      const isSelected = selectedValue === val
-                      return (
-                        <button
-                          key={val}
-                          onClick={() => {
-                            setSelectedAttributes((prev) => ({ ...prev, [key]: val }))
-                          }}
-                          className={`py-2 px-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-300 border ${
-                            isSelected
-                              ? isDarkMode
-                                ? 'bg-[#C5A880] text-black border-none'
-                                : 'bg-black text-white border-none'
-                              : isDarkMode
-                                ? 'border-[#2C2C2E] hover:border-gray-500 text-white bg-transparent'
-                                : 'border-[#E5E5EA] hover:border-black text-black bg-transparent'
-                          }`}
-                        >
-                          {val}
-                        </button>
-                      )
-                    })}
+                  <div className="flex items-center gap-3">
+                    {colors.map((color) => (
+                      <button
+                        key={color.name}
+                        onClick={() => setSelectedColor(color.name)}
+                        className={`w-7 h-7 rounded-full border transition-all duration-300 flex items-center justify-center p-0.5 ${
+                          selectedColor === color.name
+                            ? 'border-[#C5A880] scale-105 ring-1 ring-[#C5A880]'
+                            : isDarkMode
+                              ? 'border-white/10 hover:border-white/30'
+                              : 'border-gray-200 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                        aria-label={`Select ${color.name} color`}
+                      >
+                        {selectedColor === color.name && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-white shadow-sm"></span>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )
-            })}
+
+                {/* Size selection */}
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center text-[10px] font-bold tracking-widest uppercase">
+                    <span className={isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}>Size:</span>
+                    <button className="flex items-center gap-1 hover:underline text-[#C5A880]">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      Size Guide
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {sizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={`py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-300 border ${
+                          selectedSize === size
+                            ? isDarkMode
+                              ? 'bg-[#C5A880] text-black border-none'
+                              : 'bg-black text-white border-none'
+                            : isDarkMode
+                              ? 'border-[#2C2C2E] hover:border-gray-500 text-white bg-transparent'
+                              : 'border-[#E5E5EA] hover:border-black text-black bg-transparent'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Stock, Shipping info */}
             <div className="flex items-center gap-6 py-2 text-[10px] font-semibold tracking-wider uppercase text-gray-500 select-none">
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  (!product.variants || product.variants.length === 0 || (activeVariant && activeVariant.stock > 0)) ? 'bg-emerald-500' : 'bg-rose-500'
-                }`}></span>
-                {product.variants && product.variants.length > 0 ? (
-                  activeVariant ? (activeVariant.stock > 0 ? `In Stock (${activeVariant.stock} left)` : 'Out of Stock') : 'Variant Unavailable'
-                ) : (
-                  'In Stock'
-                )}
+                <span className={`w-1.5 h-1.5 rounded-full ${isOutOfStock ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+                {isOutOfStock ? 'Out of Stock' : (stockCount !== null ? `In Stock (${stockCount} items)` : 'In Stock')}
               </div>
               <div className="flex items-center gap-1.5">
                 📦 Ships in 1-2 days
