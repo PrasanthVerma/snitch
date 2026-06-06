@@ -6,6 +6,7 @@ import passport from "passport"
 import {Strategy as GoogleStrategy}  from "passport-google-oauth20"
 import productRoutes from "./routes/product.routes.js"
 import cookieParser from "cookie-parser"
+import cartRoutes from "./routes/cart.routes.js"
 
 const app = express()
 
@@ -30,6 +31,7 @@ async(accessToken,refreshToken,profile,done)=>{
 
 app.use("/api/auth",authRoutes)
 app.use("/api/products",productRoutes)
+app.use("/api/cart",cartRoutes)
 
 
 export default app 

@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleTheme } from '../../../App/theme.slice.js';
 import { useProduct } from '../hooks/useProduct';
+import { useAuth } from '../../Auth/hooks/useAuth.js';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { handleFetchAllProductsOfSeller, handleDeleteProduct } = useProduct();
+  const { handleLogout } = useAuth()
   const sellerProducts = useSelector((state) => state.product.sellerProducts) || [];
   const user = useSelector((state) => state.auth.user);
   const dispatch = useDispatch();
@@ -124,7 +126,10 @@ const Dashboard = () => {
         {/* Navigation Section */}
         <div className="flex flex-col gap-8">
           {/* Logo */}
-          <div className="flex flex-col">
+          <div
+            className="flex flex-col cursor-pointer"
+            onClick={() => { navigate("/") }}
+          >
             <h1 className={`text-2xl font-luxury-serif font-light tracking-[0.18em] uppercase ${isDarkMode ? 'text-white' : 'text-black'}`}>
               LUXORA
             </h1>
@@ -212,6 +217,7 @@ const Dashboard = () => {
 
         {/* Bottom Actions (Exclude Premium upgrade box as requested!) */}
         <Link
+          onClick={handleLogout}
           to="/"
           className={`flex items-center gap-3 px-4 py-3 text-xs font-semibold tracking-wider transition-colors duration-300 rounded-xl ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-black hover:bg-gray-100'
             }`}
@@ -646,11 +652,10 @@ const Dashboard = () => {
                                       onClick={() => {
                                         navigate(`/seller/${product._id}/add-variant`)
                                       }}
-                                      className={`px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-lg border transition-all ${
-                                        isDarkMode
+                                      className={`px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-lg border transition-all ${isDarkMode
                                           ? 'border-[#C5A880]/30 text-[#C5A880] hover:bg-[#C5A880]/10'
                                           : 'border-black/25 text-black hover:bg-black/5'
-                                      }`}
+                                        }`}
                                       title="Add Variant Options"
                                     >
                                       + Variant

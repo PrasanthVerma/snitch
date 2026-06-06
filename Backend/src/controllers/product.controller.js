@@ -7,7 +7,7 @@ import { uploadFile } from "../services/storage.service.js";
 export const addProduct = async (req, res) => {
 
     try {
-        const { name, description, priceAmount, priceCurrency } = req.body
+        const { name, description, priceAmount, priceCurrency, stock } = req.body
         const seller = req.user
 
         const images = await Promise.all(req.files.map(async (file) => {
@@ -16,6 +16,21 @@ export const addProduct = async (req, res) => {
                 fileName: file.originalname
             })
         }))
+
+        let attributes = {}
+        try{
+            attributes = typeof req.body.attributes === 'string' 
+                ? JSON.parse(req.body.attributes || "{}") 
+                : (req.body.attributes || {})
+        }catch(err){
+            return res.status(400).json({
+                message: "Invalid attributes format. Must be JSON.",
+                success: false
+            })
+        }
+        
+        const stockParsed = stock !== undefined && stock !== "" ? Number(stock) : 0
+
         const product = await productModel.create({
             name,
             description,
@@ -24,7 +39,9 @@ export const addProduct = async (req, res) => {
                 currency: priceCurrency || "INR"
             },
             images,
-            seller: seller._id
+            seller: seller._id,
+            stock: stockParsed,
+            attributes
         })
 
         return res.status(201).json({

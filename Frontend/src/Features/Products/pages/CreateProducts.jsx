@@ -15,6 +15,8 @@ const CreateProducts = () => {
     description: '',
     priceAmount: '',
     priceCurrency: 'INR',
+    stock: 0,
+    attributes: [{ key: '', value: '' }]
   });
   const [images, setImages] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -29,6 +31,32 @@ const CreateProducts = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddAttribute = () => {
+    setFormData((prev) => ({
+      ...prev,
+      attributes: [...prev.attributes, { key: '', value: '' }]
+    }));
+  };
+
+  const handleRemoveAttribute = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      attributes: prev.attributes.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleAttributeChange = (index, field, value) => {
+    setFormData((prev) => {
+      const updated = prev.attributes.map((attr, idx) => {
+        if (idx === index) {
+          return { ...attr, [field]: value };
+        }
+        return attr;
+      });
+      return { ...prev, attributes: updated };
+    });
   };
 
   // ─── Image Handlers ─────────────────────────────────────────────
@@ -94,12 +122,29 @@ const CreateProducts = () => {
       payload.append('description', formData.description);
       payload.append('priceAmount', formData.priceAmount);
       payload.append('priceCurrency', formData.priceCurrency);
+      payload.append('stock', formData.stock);
+
+      const attributesObj = {};
+      formData.attributes.forEach((attr) => {
+        if (attr.key.trim() && attr.value.trim()) {
+          attributesObj[attr.key.trim()] = attr.value.trim();
+        }
+      });
+      payload.append('attributes', JSON.stringify(attributesObj));
+
       images.forEach((img) => payload.append('images', img.file));
 
       await handleAddProduct(payload);
 
       setSuccess(true);
-      setFormData({ name: '', description: '', priceAmount: '', priceCurrency: 'INR' });
+      setFormData({
+        name: '',
+        description: '',
+        priceAmount: '',
+        priceCurrency: 'INR',
+        stock: 0,
+        attributes: [{ key: '', value: '' }]
+      });
       setImages([]);
     } catch (err) {
       setError(err?.message || 'Something went wrong. Please try again.');
@@ -436,7 +481,7 @@ const CreateProducts = () => {
                 </div>
               </div>
 
-              {/* SECTION 2: Pricing */}
+              {/* SECTION 2: Pricing & Inventory */}
               <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
                 isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
               }`}>
@@ -445,11 +490,11 @@ const CreateProducts = () => {
                     2
                   </span>
                   <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                    Pricing
+                    Pricing & Inventory
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   {/* Price Amount */}
                   <div className="space-y-2">
                     <label className={`block text-[11px] font-semibold tracking-[0.08em] uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
@@ -508,16 +553,111 @@ const CreateProducts = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Stock Level */}
+                  <div className="space-y-2">
+                    <label className={`block text-[11px] font-semibold tracking-[0.08em] uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                      Stock Level
+                    </label>
+                    <input
+                      type="number"
+                      name="stock"
+                      value={formData.stock}
+                      onChange={handleChange}
+                      placeholder="Enter quantity"
+                      min="0"
+                      className={`w-full text-sm py-3.5 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
+                        isDarkMode
+                          ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                          : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
+                      }`}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* SECTION 3: Product Images (Upto 7) */}
+              {/* SECTION 3: Specifications & Attributes */}
               <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
                 isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
               }`}>
                 <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-dashed border-gray-500/10">
                   <span className="w-6 h-6 rounded-full bg-[#C5A880] text-black font-bold text-xs flex items-center justify-center font-luxury-serif">
                     3
+                  </span>
+                  <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                    Specifications & Attributes
+                  </h3>
+                </div>
+
+                <p className={`text-xs font-light leading-relaxed mb-6 ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  Add key attributes such as Material, Fit, Sleeve, Care Instructions, etc. to help buyers make informed decisions.
+                </p>
+
+                <div className="space-y-4">
+                  {formData.attributes.map((attr, idx) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="flex-1 grid grid-cols-2 gap-4">
+                        <input
+                          type="text"
+                          placeholder="Attribute Name (e.g. Material)"
+                          value={attr.key}
+                          onChange={(e) => handleAttributeChange(idx, 'key', e.target.value)}
+                          className={`w-full text-xs py-3 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
+                            isDarkMode
+                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
+                          }`}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Attribute Value (e.g. 100% Cotton)"
+                          value={attr.value}
+                          onChange={(e) => handleAttributeChange(idx, 'value', e.target.value)}
+                          className={`w-full text-xs py-3 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
+                            isDarkMode
+                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
+                          }`}
+                        />
+                      </div>
+                      
+                      {formData.attributes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttribute(idx)}
+                          className="p-2.5 rounded-xl border border-red-500/20 hover:border-red-500 text-red-500 hover:bg-red-500/5 transition-all shrink-0"
+                          title="Remove attribute"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={handleAddAttribute}
+                    className={`mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border ${
+                      isDarkMode
+                        ? 'bg-[#151515] border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
+                        : 'bg-white border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
+                    }`}
+                  >
+                    + Add Attribute
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 4: Product Images (Upto 7) */}
+              <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
+                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+              }`}>
+                <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-dashed border-gray-500/10">
+                  <span className="w-6 h-6 rounded-full bg-[#C5A880] text-black font-bold text-xs flex items-center justify-center font-luxury-serif">
+                    4
                   </span>
                   <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
                     Product Images (Upto {MAX_IMAGES})

@@ -4,13 +4,18 @@ import { toggleTheme } from "../../../App/theme.slice.js"
 import { useNavigate, Link } from "react-router"
 import { useProduct } from "../hooks/useProduct.js"
 import { useAuth } from '../../Auth/hooks/useAuth.js'
+import { useCart } from "../../Cart/hooks/useCart.js"
 
 const Home = () => {
   const navigate = useNavigate()
   const products = useSelector((state) => state.product.allProducts) || []
   const user = useSelector((state) => state.auth.user)
+  const cartItems = useSelector((state) => state.cart.items) || []
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0)
+
   const { handleFetchAllProducts } = useProduct()
-  const {handleLogout} = useAuth()
+  const { handleLogout } = useAuth()
+  const { handleGetCart } = useCart()
   const dispatch = useDispatch()
 
   const isDarkMode = useSelector((state) => state.theme.isDarkMode)
@@ -22,7 +27,10 @@ const Home = () => {
 
   useEffect(() => {
     handleFetchAllProducts()
-  }, [])
+    if (user) {
+      handleGetCart()
+    }
+  }, [user])
 
   // ─── Computations & Filtering ──────────────────────────────────
   const allProductsAndVariants = useMemo(() => {
@@ -195,6 +203,18 @@ const Home = () => {
                 </svg>
               )}
             </button>
+
+            {/* Cart Icon with badge */}
+            <Link to="/cart" className="p-2 rounded-full relative text-gray-400 hover:text-white block" title="View Cart">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              {cartCount > 0 && (
+                <span className="absolute top-1 right-1 bg-[#C5A880] text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center animate-pulse">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
 
             {/* Dashboard Shortcut link (if authenticated as seller/user) */}
             {user?.role === 'seller' ? (

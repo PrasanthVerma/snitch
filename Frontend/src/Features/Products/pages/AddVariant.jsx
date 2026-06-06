@@ -5,6 +5,7 @@ import { toggleTheme } from '../../../App/theme.slice.js'
 import { useProduct } from '../hooks/useProduct'
 
 const MAX_IMAGES = 7
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP']
 
 const AddVariant = () => {
   const { productId } = useParams()
@@ -13,18 +14,22 @@ const AddVariant = () => {
   const { handleAddVariant, handleFetchProductById } = useProduct()
 
   const [product, setProduct] = useState(null)
-  const [options, setOptions] = useState(['Color'])
-  const [newOptionName, setNewOptionName] = useState('')
-  const [variants, setVariants] = useState([])
+  const [formData, setFormData] = useState({
+    priceAmount: '',
+    priceCurrency: 'INR',
+    stock: 0,
+    attributes: [{ key: '', value: '' }]
+  })
   
+  const [images, setImages] = useState([])
+  const [isDragging, setIsDragging] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [submitProgress, setSubmitProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
 
   const isDarkMode = useSelector((state) => state.theme.isDarkMode)
-  const fileInputRefs = useRef({})
+  const fileInputRef = useRef(null)
 
   // ─── Fetch Product Details ──────────────────────────────────────
   useEffect(() => {
@@ -34,16 +39,13 @@ const AddVariant = () => {
         const data = await handleFetchProductById(productId)
         setProduct(data)
         
-        // Initialize with one empty variant row
-        setVariants([
-          {
-            id: Date.now(),
-            attributeValues: { Color: '' },
-            priceAmount: '',
-            stock: '',
-            images: []
-          }
-        ])
+        // Populate currency based on base product
+        if (data?.price?.currency) {
+          setFormData((prev) => ({
+            ...prev,
+            priceCurrency: data.price.currency
+          }))
+        }
       } catch (err) {
         setError('Failed to fetch the original product details.')
       } finally {
@@ -55,191 +57,140 @@ const AddVariant = () => {
     }
   }, [productId])
 
-  // ─── Global Option Type Handlers ────────────────────────────────
-  const handleAddOption = (e) => {
-    e.preventDefault()
-    const name = newOptionName.trim()
-    if (!name) return
-    if (options.some(opt => opt.toLowerCase() === name.toLowerCase())) {
-      setError(`Option type "${name}" already exists.`)
-      return
-    }
-    setError(null)
-    setOptions((prev) => [...prev, name])
-    setVariants((prev) =>
-      prev.map((v) => ({
-        ...v,
-        attributeValues: { ...v.attributeValues, [name]: '' }
-      }))
-    )
-    setNewOptionName('')
-  }
+  // ─── Form Handlers ─────────────────────────────────────────────
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-  const handleRemoveOption = (name) => {
-    if (options.length <= 1) {
-      setError('At least one attribute option type is required.')
-      return
-    }
-    setError(null)
-    setOptions((prev) => prev.filter((o) => o !== name))
-    setVariants((prev) =>
-      prev.map((v) => {
-        const nextAttrs = { ...v.attributeValues }
-        delete nextAttrs[name]
-        return { ...v, attributeValues: nextAttrs }
-      })
-    )
-  }
-
-  // ─── Variant Row Handlers ───────────────────────────────────────
-  const handleAddVariantRow = () => {
-    const initAttrs = {}
-    options.forEach((opt) => {
-      initAttrs[opt] = ''
-    })
-    setVariants((prev) => [
+  const handleAddAttribute = () => {
+    setFormData((prev) => ({
       ...prev,
-      {
-        id: Date.now() + Math.random(),
-        attributeValues: initAttrs,
-        priceAmount: '',
-        stock: '',
-        images: []
-      }
-    ])
-  }
+      attributes: [...prev.attributes, { key: '', value: '' }]
+    }));
+  };
 
-  const handleRemoveVariantRow = (id) => {
-    if (variants.length <= 1) {
-      setError('At least one variant row is required.')
-      return
-    }
-    setVariants((prev) => {
-      const target = prev.find((v) => v.id === id)
-      if (target) {
-        target.images.forEach((img) => URL.revokeObjectURL(img.preview))
-      }
-      return prev.filter((v) => v.id !== id)
-    })
-  }
+  const handleRemoveAttribute = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      attributes: prev.attributes.filter((_, idx) => idx !== index)
+    }));
+  };
 
-  const handleFieldChange = (id, field, value) => {
-    setVariants((prev) =>
-      prev.map((v) => {
-        if (v.id === id) {
-          return { ...v, [field]: value }
+  const handleAttributeChange = (index, field, value) => {
+    setFormData((prev) => {
+      const updated = prev.attributes.map((attr, idx) => {
+        if (idx === index) {
+          return { ...attr, [field]: value };
         }
-        return v
-      })
-    )
-  }
+        return attr;
+      });
+      return { ...prev, attributes: updated };
+    });
+  };
 
-  const handleAttrValueChange = (id, optionKey, value) => {
-    setVariants((prev) =>
-      prev.map((v) => {
-        if (v.id === id) {
-          return {
-            ...v,
-            attributeValues: { ...v.attributeValues, [optionKey]: value }
-          }
-        }
-        return v
-      })
-    )
-  }
+  // ─── Image Handlers ─────────────────────────────────────────────
+  const processFiles = useCallback((files) => {
+    const incoming = Array.from(files).filter((f) =>
+      f.type.startsWith('image/')
+    );
+    setImages((prev) => {
+      const slots = MAX_IMAGES - prev.length;
+      if (slots <= 0) return prev;
+      const added = incoming.slice(0, slots).map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+        id: `${Date.now()}-${Math.random()}`,
+      }));
+      return [...prev, ...added];
+    });
+  }, []);
 
-  // ─── Variant Images Handlers ────────────────────────────────────
-  const handleFileChange = (variantId, files) => {
-    const incoming = Array.from(files).filter((f) => f.type.startsWith('image/'))
-    setVariants((prev) =>
-      prev.map((v) => {
-        if (v.id === variantId) {
-          const slots = MAX_IMAGES - v.images.length
-          if (slots <= 0) return v
-          const added = incoming.slice(0, slots).map((file) => ({
-            file,
-            preview: URL.createObjectURL(file),
-            id: `${Date.now()}-${Math.random()}`
-          }))
-          return { ...v, images: [...v.images, ...added] }
-        }
-        return v
-      })
-    )
-  }
+  const handleFileInputChange = (e) => {
+    processFiles(e.target.files);
+    e.target.value = '';
+  };
 
-  const handleRemoveVariantImage = (variantId, imageId) => {
-    setVariants((prev) =>
-      prev.map((v) => {
-        if (v.id === variantId) {
-          const target = v.images.find((img) => img.id === imageId)
-          if (target) URL.revokeObjectURL(target.preview)
-          return { ...v, images: v.images.filter((img) => img.id !== imageId) }
-        }
-        return v
-      })
-    )
-  }
+  const handleRemoveImage = (id) => {
+    setImages((prev) => {
+      const target = prev.find((img) => img.id === id);
+      if (target) URL.revokeObjectURL(target.preview);
+      return prev.filter((img) => img.id !== id);
+    });
+  };
 
-  // ─── Form Batch Submit ──────────────────────────────────────────
-  const handleSubmitAll = async () => {
+  // ─── Drag & Drop ────────────────────────────────────────────────
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (images.length >= MAX_IMAGES) return;
+    processFiles(e.dataTransfer.files);
+  };
+
+  // ─── Form Submit ──────────────────────────────────────────
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setError(null)
+    setSubmitting(true)
 
-    // Validation
-    const invalidRowIdx = variants.findIndex((v) => {
-      return options.some((opt) => !v.attributeValues[opt] || v.attributeValues[opt].trim() === '')
+    // Validate attributes
+    const cleanedAttrs = {}
+    formData.attributes.forEach((attr) => {
+      if (attr.key.trim() && attr.value.trim()) {
+        cleanedAttrs[attr.key.trim()] = attr.value.trim()
+      }
     })
 
-    if (invalidRowIdx !== -1) {
-      setError(`Variant row #${invalidRowIdx + 1} has empty attribute values. Please complete them or delete the row.`)
+    if (Object.keys(cleanedAttrs).length === 0) {
+      setError('At least one attribute (e.g. Color, Size) is required to differentiate the variant.')
+      setSubmitting(false)
       return
     }
-
-    setSubmitting(true)
-    setSubmitProgress({ current: 0, total: variants.length })
 
     try {
-      // Create variants sequentially to prevent concurrent ImageKit upload bottlenecks
-      for (let i = 0; i < variants.length; i++) {
-        setSubmitProgress({ current: i + 1, total: variants.length })
-        const variant = variants[i]
+      const payload = new FormData()
 
-        const payload = new FormData()
+      // Attributes payload
+      payload.append('attributes', JSON.stringify(cleanedAttrs))
 
-        // Attributes payload
-        const cleanedAttrs = {}
-        options.forEach((opt) => {
-          cleanedAttrs[opt] = variant.attributeValues[opt].trim()
-        })
-        payload.append('attributes', JSON.stringify(cleanedAttrs))
-
-        // Price amount (optional)
-        if (variant.priceAmount.trim() !== '') {
-          payload.append('priceAmount', variant.priceAmount)
-        }
-
-        // Stock (optional)
-        if (variant.stock.trim() !== '') {
-          payload.append('stock', variant.stock)
-        }
-
-        // Files/Images
-        variant.images.forEach((img) => {
-          payload.append('images', img.file)
-        })
-
-        await handleAddVariant(productId, payload)
+      // Price amount (optional)
+      if (formData.priceAmount.trim() !== '') {
+        payload.append('priceAmount', formData.priceAmount)
+        payload.append('priceCurrency', formData.priceCurrency)
       }
+
+      // Stock level
+      payload.append('stock', formData.stock)
+
+      // Files/Images
+      images.forEach((img) => {
+        payload.append('images', img.file)
+      })
+
+      await handleAddVariant(productId, payload)
 
       setSuccess(true)
       // Cleanup Object URLs
-      variants.forEach((v) => v.images.forEach((img) => URL.revokeObjectURL(img.preview)))
+      images.forEach((img) => URL.revokeObjectURL(img.preview))
       
       setTimeout(() => {
         navigate(`/product/${productId}`)
       }, 2000)
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Error uploading and adding variants.')
+      setError(err?.response?.data?.message || err?.message || 'Error uploading and adding variant.')
       setSubmitting(false)
     }
   }
@@ -354,10 +305,10 @@ const AddVariant = () => {
             </Link>
             <div className="flex flex-col">
               <h2 className={`text-xl sm:text-2xl font-luxury-serif font-light tracking-wide ${isDarkMode ? 'text-white' : 'text-[#111111]'}`}>
-                Manage Product Variants
+                Add Product Variant
               </h2>
               <span className={`text-[10px] sm:text-xs font-light mt-0.5 ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                Define dynamic variant dimensions and publish multiple catalog options collectively
+                Define dynamic variant dimensions and publish new catalog options
               </span>
             </div>
           </div>
@@ -399,10 +350,10 @@ const AddVariant = () => {
         </header>
 
         {/* Content Body */}
-        <div className="flex-1 w-full max-w-[1240px] mx-auto px-4 sm:px-6 md:px-8 py-6 space-y-6">
+        <div className="flex-1 w-full max-w-[1240px] mx-auto px-6 sm:px-8 md:px-12 py-10">
           {/* Status Banners */}
           {error && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium tracking-wide flex items-center gap-2.5">
+            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium tracking-wide flex items-center gap-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
@@ -411,25 +362,23 @@ const AddVariant = () => {
           )}
 
           {success && (
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-medium tracking-wide flex items-center gap-2.5 animate-pulse">
+            <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-medium tracking-wide flex items-center gap-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <span>All variants uploaded successfully! Redirecting...</span>
+              <span>Variant published successfully! Redirecting...</span>
             </div>
           )}
 
           {submitting && (
-            <div className="p-4 rounded-xl bg-[#C5A880]/10 border border-[#C5A880]/20 text-[#C5A880] text-xs font-medium tracking-wide flex items-center gap-3">
+            <div className="mb-8 p-4 rounded-xl bg-[#C5A880]/10 border border-[#C5A880]/20 text-[#C5A880] text-xs font-medium tracking-wide flex items-center gap-3">
               <div className="w-4.5 h-4.5 border-2 border-[#C5A880]/30 border-t-[#C5A880] rounded-full animate-spin shrink-0"></div>
-              <span>
-                Adding variants: Processing variant {submitProgress.current} of {submitProgress.total}...
-              </span>
+              <span>Uploading variant details and images...</span>
             </div>
           )}
 
           {/* Base Product Card: Small and Concise */}
-          <div className={`p-4 rounded-xl border transition-all duration-300 flex items-center gap-4 ${
+          <div className={`mb-8 p-4 rounded-xl border transition-all duration-300 flex items-center gap-4 ${
             isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
           }`}>
             <div className="w-12 h-16 rounded overflow-hidden shrink-0 bg-gray-500/10 border border-gray-500/10">
@@ -442,7 +391,7 @@ const AddVariant = () => {
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2">
                 <span className="bg-[#C5A880]/15 border border-[#C5A880]/25 text-[#C5A880] text-[8px] font-bold uppercase tracking-[0.15em] px-1.5 py-0.5 rounded shrink-0">
-                  Base
+                  Base Product
                 </span>
                 <h3 className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-black'}`}>
                   {product?.name}
@@ -460,250 +409,336 @@ const AddVariant = () => {
             </div>
           </div>
 
-          {/* SECTION 1: Variant Options Schema definition */}
-          <div className={`p-4 sm:p-5 rounded-xl border transition-all duration-300 space-y-4 ${
-            isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-          }`}>
-            <div className="flex items-center gap-2 pb-2 border-b border-dashed border-gray-500/10">
-              <span className="w-5 h-5 rounded-full bg-[#C5A880] text-black font-bold text-[10px] flex items-center justify-center font-luxury-serif">
-                1
-              </span>
-              <h3 className={`text-xs font-semibold tracking-wide uppercase ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                Configure Option Dimensions (e.g. Color, Size)
-              </h3>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Option Tags */}
-              {options.map((opt) => (
-                <div
-                  key={opt}
-                  className={`flex items-center gap-2 pl-3 pr-2 py-1 rounded-full text-xs font-medium border ${
-                    isDarkMode ? 'bg-[#151515] border-[#2C2C2E] text-white' : 'bg-gray-50 border-[#E5E5EA] text-black'
-                  }`}
-                >
-                  <span>{opt}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveOption(opt)}
-                    className="p-0.5 rounded-full hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-colors"
-                    title={`Remove ${opt} option`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+          <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-8 sm:gap-10">
+            {/* Left Column (Inputs & Details - 60% Width) */}
+            <div className="w-full lg:w-[58%] xl:w-[60%] flex flex-col gap-8">
+              
+              {/* SECTION 1: Pricing & Inventory */}
+              <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
+                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+              }`}>
+                <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-dashed border-gray-500/10">
+                  <span className="w-6 h-6 rounded-full bg-[#C5A880] text-black font-bold text-xs flex items-center justify-center font-luxury-serif">
+                    1
+                  </span>
+                  <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                    Pricing & Inventory (Variant Specific)
+                  </h3>
                 </div>
-              ))}
 
-              {/* Add Option Inline Input */}
-              <form onSubmit={handleAddOption} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Add option (e.g. Material)"
-                  value={newOptionName}
-                  onChange={(e) => setNewOptionName(e.target.value)}
-                  className={`text-xs py-1.5 px-3 rounded-lg border focus:outline-none focus:ring-2 transition-all duration-300 ${
-                    isDarkMode
-                      ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-gray-600 focus:border-[#C5A880] focus:ring-[#C5A880]/10'
-                      : 'bg-white border-[#E5E5EA] text-black placeholder-gray-400 focus:border-black focus:ring-black/5'
-                  }`}
-                />
-                <button
-                  type="submit"
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all border ${
-                    isDarkMode
-                      ? 'bg-[#151515] border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
-                      : 'bg-white border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
-                  }`}
-                >
-                  + Add Option
-                </button>
-              </form>
-            </div>
-          </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {/* Price Amount */}
+                  <div className="space-y-2">
+                    <label className={`block text-[11px] font-semibold tracking-[0.08em] uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                      Price Amount
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#8E8E93] text-sm">
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        name="priceAmount"
+                        value={formData.priceAmount}
+                        onChange={handleChange}
+                        placeholder={`Copy: ${product?.price?.amount}`}
+                        min="0"
+                        step="0.01"
+                        className={`w-full text-sm py-3.5 pl-8 pr-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
+                          isDarkMode
+                            ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                            : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
+                        }`}
+                      />
+                    </div>
+                  </div>
 
-          {/* SECTION 2: Variants Table */}
-          <div className={`p-4 sm:p-5 rounded-xl border transition-all duration-300 space-y-4 ${
-            isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-          }`}>
-            <div className="flex items-center justify-between pb-2 border-b border-dashed border-gray-500/10">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#C5A880] text-black font-bold text-[10px] flex items-center justify-center font-luxury-serif">
-                  2
-                </span>
-                <h3 className={`text-xs font-semibold tracking-wide uppercase ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  Variant Details List
-                </h3>
+                  {/* Price Currency */}
+                  <div className="space-y-2">
+                    <label className={`block text-[11px] font-semibold tracking-[0.08em] uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                      Price Currency
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="priceCurrency"
+                        value={formData.priceCurrency}
+                        onChange={handleChange}
+                        className={`w-full text-sm py-3.5 pl-4 pr-10 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light cursor-pointer appearance-none ${
+                          isDarkMode
+                            ? 'bg-[#151515] border-[#2C2C2E] text-white focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                            : 'bg-white border-[#E5E5EA] text-[#111111] focus:border-black focus:ring-black/5'
+                        }`}
+                      >
+                        {CURRENCIES.map((c) => (
+                          <option key={c} value={c} className={isDarkMode ? 'bg-[#151515] text-white' : 'bg-white text-black'}>
+                            {c === 'INR' ? 'INR (₹)' : c === 'USD' ? 'USD ($)' : c === 'EUR' ? 'EUR (€)' : c === 'GBP' ? 'GBP (£)' : c}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-[#8E8E93]">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stock Level */}
+                  <div className="space-y-2">
+                    <label className={`block text-[11px] font-semibold tracking-[0.08em] uppercase ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                      Stock Level
+                    </label>
+                    <input
+                      type="number"
+                      name="stock"
+                      value={formData.stock}
+                      onChange={handleChange}
+                      placeholder="Enter quantity"
+                      min="0"
+                      className={`w-full text-sm py-3.5 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
+                        isDarkMode
+                          ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                          : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
+                      }`}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddVariantRow}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1 transition-all border ${
-                  isDarkMode
-                    ? 'border-[#2C2C2E] hover:border-[#C5A880] text-[#C5A880] bg-transparent'
-                    : 'border-[#E5E5EA] hover:border-black text-black bg-transparent'
-                }`}
-              >
-                + Add Another Row
-              </button>
-            </div>
+              {/* SECTION 2: Variant Specifications & Attributes */}
+              <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
+                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+              }`}>
+                <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-dashed border-gray-500/10">
+                  <span className="w-6 h-6 rounded-full bg-[#C5A880] text-black font-bold text-xs flex items-center justify-center font-luxury-serif">
+                    2
+                  </span>
+                  <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                    Specifications & Attributes
+                  </h3>
+                </div>
 
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse min-w-[700px]">
-                <thead>
-                  <tr className={`border-b text-[10px] uppercase tracking-wider font-semibold ${
-                    isDarkMode ? 'border-white/5 text-gray-500' : 'border-gray-100 text-gray-400'
-                  }`}>
-                    {options.map((opt) => (
-                      <th key={opt} className="pb-3 pr-4 font-semibold">
-                        {opt} *
-                      </th>
-                    ))}
-                    <th className="pb-3 pr-4 font-semibold w-28">Price (₹)</th>
-                    <th className="pb-3 pr-4 font-semibold w-20">Stock</th>
-                    <th className="pb-3 pr-4 font-semibold">Images (Max 7)</th>
-                    <th className="pb-3 text-center font-semibold w-16">Remove</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-50'}`}>
-                  {variants.map((variant, idx) => (
-                    <tr key={variant.id} className="align-middle">
-                      {/* Dynamic Options values inputs */}
-                      {options.map((opt) => (
-                        <td key={opt} className="py-3 pr-4">
-                          <input
-                            type="text"
-                            value={variant.attributeValues[opt] || ''}
-                            onChange={(e) => handleAttrValueChange(variant.id, opt, e.target.value)}
-                            placeholder={`e.g. ${opt === 'Color' ? 'Black' : opt === 'Size' ? 'XL' : 'Value'}`}
-                            className={`w-full text-xs py-2 px-3 rounded-lg border focus:outline-none focus:ring-2 transition-all ${
-                              isDarkMode
-                                ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-gray-700 focus:border-[#C5A880] focus:ring-[#C5A880]/5'
-                                : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-gray-300 focus:border-black focus:ring-black/5'
-                            }`}
-                            required
-                          />
-                        </td>
-                      ))}
+                <p className={`text-xs font-light leading-relaxed mb-6 ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  Add key attributes such as Color, Size, Material, Fit, etc. to differentiate this variant. At least one attribute is required.
+                </p>
 
-                      {/* Price input */}
-                      <td className="py-3 pr-4">
+                <div className="space-y-4">
+                  {formData.attributes.map((attr, idx) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="flex-1 grid grid-cols-2 gap-4">
                         <input
-                          type="number"
-                          value={variant.priceAmount}
-                          onChange={(e) => handleFieldChange(variant.id, 'priceAmount', e.target.value)}
-                          placeholder={`Copy: ${product?.price?.amount}`}
-                          min="0"
-                          step="0.01"
-                          className={`w-full text-xs py-2 px-3 rounded-lg border focus:outline-none focus:ring-2 transition-all ${
+                          type="text"
+                          placeholder="Attribute Name (e.g. Size)"
+                          value={attr.key}
+                          onChange={(e) => handleAttributeChange(idx, 'key', e.target.value)}
+                          className={`w-full text-xs py-3 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
                             isDarkMode
-                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-gray-700 focus:border-[#C5A880] focus:ring-[#C5A880]/5'
-                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-gray-300 focus:border-black focus:ring-black/5'
+                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
                           }`}
+                          required
                         />
-                      </td>
-
-                      {/* Stock input */}
-                      <td className="py-3 pr-4">
                         <input
-                          type="number"
-                          value={variant.stock}
-                          onChange={(e) => handleFieldChange(variant.id, 'stock', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          className={`w-full text-xs py-2 px-3 rounded-lg border focus:outline-none focus:ring-2 transition-all ${
+                          type="text"
+                          placeholder="Attribute Value (e.g. XL)"
+                          value={attr.value}
+                          onChange={(e) => handleAttributeChange(idx, 'value', e.target.value)}
+                          className={`w-full text-xs py-3 px-4 rounded-xl border focus:outline-none focus:ring-4 transition-all duration-300 font-light ${
                             isDarkMode
-                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-gray-700 focus:border-[#C5A880] focus:ring-[#C5A880]/5'
-                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-gray-300 focus:border-black focus:ring-black/5'
+                              ? 'bg-[#151515] border-[#2C2C2E] text-white placeholder-[#555558] focus:border-[#C5A880] focus:ring-[#C5A880]/10'
+                              : 'bg-white border-[#E5E5EA] text-[#111111] placeholder-[#AEAEB2] focus:border-black focus:ring-black/5'
                           }`}
+                          required
                         />
-                      </td>
-
-                      {/* Mini Images Upload Cell */}
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2 flex-wrap min-w-[150px]">
-                          {/* List of tiny previews */}
-                          {variant.images.map((img) => (
-                            <div key={img.id} className="relative w-8 h-8 rounded border border-gray-500/10 overflow-hidden shrink-0 group">
-                              <img
-                                src={img.preview}
-                                alt="preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveVariantImage(variant.id, img.id)}
-                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-bold transition-opacity"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-
-                          {/* Plus mini upload button */}
-                          {variant.images.length < MAX_IMAGES && (
-                            <button
-                              type="button"
-                              onClick={() => fileInputRefs.current[variant.id]?.click()}
-                              className={`w-8 h-8 rounded border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                                isDarkMode
-                                  ? 'border-[#2C2C2E] hover:border-[#C5A880] text-gray-600 hover:text-[#C5A880]'
-                                  : 'border-[#E5E5EA] hover:border-black text-gray-400 hover:text-black'
-                              }`}
-                              title="Add row image"
-                            >
-                              <span className="text-sm font-semibold">+</span>
-                            </button>
-                          )}
-
-                          {/* Hidden input */}
-                          <input
-                            ref={(el) => (fileInputRefs.current[variant.id] = el)}
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => handleFileChange(variant.id, e.target.files)}
-                            className="sr-only"
-                          />
-
-                          {variant.images.length === 0 && (
-                            <span className="text-[9px] text-gray-500 italic">
-                              Inheriting base images
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Delete row button */}
-                      <td className="py-3 text-center">
+                      </div>
+                      
+                      {formData.attributes.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveVariantRow(variant.id)}
-                          className="p-1.5 rounded-lg border border-red-500/20 hover:border-red-500 text-red-500 hover:bg-red-500/5 transition-all"
-                          title="Delete row"
-                          disabled={variants.length <= 1}
+                          onClick={() => handleRemoveAttribute(idx)}
+                          className="p-2.5 rounded-xl border border-red-500/20 hover:border-red-500 text-red-500 hover:bg-red-500/5 transition-all shrink-0"
+                          title="Remove attribute"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
-                      </td>
-                    </tr>
+                      )}
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
 
-          {/* Form Actions Footer */}
-          <div className={`pt-6 border-t flex justify-end items-center gap-4 ${
+                  <button
+                    type="button"
+                    onClick={handleAddAttribute}
+                    className={`mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all border ${
+                      isDarkMode
+                        ? 'bg-[#151515] border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
+                        : 'bg-white border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
+                    }`}
+                  >
+                    + Add Attribute
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 3: Variant Images */}
+              <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
+                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+              }`}>
+                <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-dashed border-gray-500/10">
+                  <span className="w-6 h-6 rounded-full bg-[#C5A880] text-black font-bold text-xs flex items-center justify-center font-luxury-serif">
+                    3
+                  </span>
+                  <h3 className={`text-base font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                    Variant Images (Upto {MAX_IMAGES})
+                  </h3>
+                </div>
+
+                <p className={`text-xs font-light leading-relaxed ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  Upload up to {MAX_IMAGES} images specific to this variant. If left empty, this variant will automatically inherit the base product's images.
+                </p>
+              </div>
+            </div>
+
+            {/* Right Column (Drag and Drop & Previews - 40% Width) */}
+            <div className="w-full lg:flex-1 flex flex-col gap-6">
+              
+              {/* Image Drag and Drop Container */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => images.length < MAX_IMAGES && fileInputRef.current?.click()}
+                className={`w-full border-2 border-dashed rounded-2xl p-8 text-center flex flex-col items-center justify-center transition-all duration-300 ${
+                  images.length >= MAX_IMAGES
+                    ? 'border-gray-800 cursor-not-allowed opacity-50'
+                    : isDragging
+                      ? 'border-[#C5A880] bg-[#C5A880]/5 scale-[1.01] cursor-copy'
+                      : isDarkMode
+                        ? 'border-[#2C2C2E] hover:border-gray-500 bg-[#0D0D0D] cursor-pointer'
+                        : 'border-[#E5E5EA] hover:border-gray-400 bg-white cursor-pointer'
+                }`}
+              >
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileInputChange}
+                  className="sr-only"
+                  aria-label="Upload images trigger"
+                />
+
+                {/* Cloud icon outline in bronze gold */}
+                <div className={`p-4 rounded-full mb-4 transition-colors ${
+                  isDragging ? 'bg-[#C5A880]/20 text-[#C5A880]' : 'bg-[#C5A880]/5 text-[#C5A880]'
+                }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+
+                <h4 className={`text-sm font-semibold tracking-wide ${isDarkMode ? 'text-white' : 'text-[#111111]'}`}>
+                  {isDragging ? 'Drop images to upload' : 'Drag & drop images here'}
+                </h4>
+                <span className={`text-[11px] font-light mt-1 ${isDarkMode ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>or</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (images.length < MAX_IMAGES) fileInputRef.current?.click();
+                  }}
+                  className={`mt-3.5 px-6 py-2.5 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 ${
+                    isDarkMode
+                      ? 'bg-[#151515] border border-[#2C2C2E] text-white hover:bg-[#1E1E1E]'
+                      : 'bg-white border border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
+                  }`}
+                >
+                  Browse Files
+                </button>
+
+                <div className={`text-[10px] tracking-wider uppercase font-semibold mt-6 ${
+                  images.length >= MAX_IMAGES ? 'text-red-500' : 'text-gray-500'
+                }`}>
+                  {images.length} / {MAX_IMAGES} images uploaded
+                </div>
+              </div>
+
+              {/* Image Previews Section */}
+              <div className={`p-6 sm:p-8 rounded-2xl border transition-all duration-300 ${
+                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+              }`}>
+                <h4 className={`text-xs font-semibold tracking-[0.08em] uppercase mb-4 ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'}`}>
+                  Image Previews
+                </h4>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {images.map((img, idx) => (
+                    <div key={img.id} className="relative group aspect-square rounded-xl overflow-hidden border border-dashed border-gray-500/10">
+                      <img
+                        src={img.preview}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-full object-cover select-none"
+                      />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveImage(img.id);
+                          }}
+                          className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-all duration-300"
+                          aria-label="Delete Image"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <span className="absolute bottom-1.5 left-2 text-[9px] bg-black/40 text-white/80 py-0.5 px-1.5 rounded font-mono select-none">
+                        {idx + 1}
+                      </span>
+                    </div>
+                  ))}
+
+                  {images.length < MAX_IMAGES && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`aspect-square border border-dashed rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
+                        isDarkMode
+                          ? 'border-[#2C2C2E] hover:border-[#C5A880] text-gray-500 hover:text-[#C5A880] hover:bg-white/5'
+                          : 'border-[#E5E5EA] hover:border-black text-gray-500 hover:text-black hover:bg-gray-50'
+                      }`}
+                      aria-label="Add image grid box slot"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="text-[9px] tracking-wide font-medium">Add Image</span>
+                    </button>
+                  )}
+                </div>
+
+                {images.length < MAX_IMAGES && (
+                  <p className="text-[10px] text-gray-500 font-light mt-4">
+                    You can add up to {MAX_IMAGES - images.length} more images
+                  </p>
+                )}
+              </div>
+            </div>
+          </form>
+
+          {/* Action buttons footer aligned right */}
+          <div className={`mt-10 pt-6 border-t flex justify-end items-center gap-4 ${
             isDarkMode ? 'border-white/5' : 'border-[#E5E5EA]'
           }`}>
             <Link
               to={`/product/${productId}`}
-              className={`px-6 py-3 rounded-xl text-xs font-semibold tracking-wider transition-all border ${
+              className={`px-6 py-3 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 border ${
                 isDarkMode
                   ? 'bg-transparent border-[#2C2C2E] text-white hover:bg-white/5'
                   : 'bg-white border-[#E5E5EA] text-[#636366] hover:bg-[#F2F2F7]'
@@ -713,15 +748,15 @@ const AddVariant = () => {
             </Link>
 
             <button
-              onClick={handleSubmitAll}
+              onClick={handleSubmit}
               disabled={submitting}
-              className={`px-8 py-3 rounded-xl font-medium text-xs tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed select-none ${
+              className={`px-8 py-3 rounded-xl font-medium text-xs tracking-wider flex items-center gap-2 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed select-none ${
                 isDarkMode
                   ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5] disabled:bg-[#48484A] disabled:text-[#8E8E93] shadow-[0_4px_16px_rgba(197,168,128,0.2)]'
                   : 'bg-black text-white hover:bg-[#1C1C1E] disabled:bg-[#AEAEB2] disabled:text-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]'
               }`}
             >
-              <span>{submitting ? 'Uploading...' : 'Publish All Variants'}</span>
+              <span>{submitting ? 'Publishing...' : 'Publish Variant'}</span>
               {!submitting && (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

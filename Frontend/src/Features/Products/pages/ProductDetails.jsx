@@ -4,6 +4,7 @@ import { toggleTheme } from "../../../App/theme.slice.js"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router"
 import { useProduct } from "../hooks/useProduct.js"
 import { useAuth } from '../../Auth/hooks/useAuth.js'
+import { useCart } from "../../Cart/hooks/useCart.js"
 
 const ProductDetails = () => {
   const { id } = useParams()
@@ -11,6 +12,7 @@ const ProductDetails = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const { handleFetchProductById, handleFetchAllProducts } = useProduct()
   const { handleLogout } = useAuth()
+  const { handleGetCart,handleAddToCart } = useCart()
   const dispatch = useDispatch()
 
   const [product, setProduct] = useState(null)
@@ -26,6 +28,8 @@ const ProductDetails = () => {
 
   const user = useSelector((state) => state.auth.user)
   const allProducts = useSelector((state) => state.product.allProducts) || []
+  const cartItems = useSelector((state) => state.cart.items) || []
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0)
 
   const [selectedVariant, setSelectedVariant] = useState(null)
   const activeVariantId = searchParams.get('variant')
@@ -42,7 +46,10 @@ const ProductDetails = () => {
   useEffect(() => {
     fetchProductDetails()
     handleFetchAllProducts()
-  }, [id])
+    if (user) {
+      handleGetCart()
+    }
+  }, [id, user])
 
   // Sync selected variant with query parameter
   useEffect(() => {
@@ -197,14 +204,16 @@ const ProductDetails = () => {
             </button>
 
             {/* Cart Icon with badge */}
-            <button className="p-2 rounded-full relative text-gray-400 hover:text-white">
+            <Link to="/cart" className="p-2 rounded-full relative text-gray-400 hover:text-white block">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
-              <span className="absolute top-1 right-1 bg-[#C5A880] text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                2
-              </span>
-            </button>
+              {cartCount > 0 && (
+                <span className="absolute top-1 right-1 bg-[#C5A880] text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center animate-pulse">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
 
             {/* Theme Toggle Button */}
             <button
@@ -510,6 +519,7 @@ const ProductDetails = () => {
               {/* Add to Cart */}
               <button
                 type="button"
+                onClick={()=>{handleAddToCart(product._id,selectedVariant?._id)}}
                 className={`flex-1 py-3.5 px-6 rounded-xl font-semibold text-xs tracking-widest uppercase transition-all duration-300 flex justify-center items-center gap-2 select-none cursor-pointer ${
                   isDarkMode
                     ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5] shadow-[0_4px_16px_rgba(197,168,128,0.25)]'

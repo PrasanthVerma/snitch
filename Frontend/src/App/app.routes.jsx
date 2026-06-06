@@ -10,6 +10,7 @@ import Home from "../Features/Products/pages/Home.jsx"
 import ProductDetails from "../Features/Products/pages/ProductDetails.jsx"
 import UpdateProduct from "../Features/Products/pages/UpdateProduct.jsx"
 import AddVariant from "../Features/Products/pages/AddVariant.jsx"
+import Cart from "../Features/Cart/pages/Cart.jsx"
 
 export const router = createBrowserRouter([
     {
@@ -48,7 +49,12 @@ export const router = createBrowserRouter([
     {
         path:"/product/:id",
         element:<ProductDetails/>,
+    },
+    {
+        path:"/cart",
+        element:<Cart/>
     }
+
 ])
 
 export default router;
