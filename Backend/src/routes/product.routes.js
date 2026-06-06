@@ -60,5 +60,12 @@ router.delete("/delete-product/:id", authenticateSeller, productController.delet
  */
 router.post("/seller/:productId/add-variant", authenticateSeller, upload.array("images", 7), productController.addVariantToProduct)
 
+/**
+ * @route POST /api/products/update-stock/:id
+ * @desc Update stock of a product or its variant (Seller only)
+ * @access Private (Seller)
+ */
+router.post("/update-stock/:id", authenticateSeller, productController.updateStock)
+
 
 export default router

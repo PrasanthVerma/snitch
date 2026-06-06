@@ -38,3 +38,8 @@ export async function addVariant(productId,formData){
     const response = await productApiInstance.post(`/seller/${productId}/add-variant`,formData)
     return response.data
 }
+
+export async function updateStock(productId, stockData) {
+    const response = await productApiInstance.post(`/update-stock/${productId}`, stockData)
+    return response.data
+}

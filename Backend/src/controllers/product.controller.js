@@ -294,6 +294,59 @@ export const addVariantToProduct = async (req, res) => {
     }
 }
 
+// Update stock of a product or its variant (Seller only)
+export const updateStock = async (req, res) => {
+    try {
+        const productId = req.params.id
+        const seller = req.user
+        const { stock, variantId } = req.body
+
+        if (stock === undefined || stock === null || isNaN(Number(stock))) {
+            return res.status(400).json({
+                message: "Valid stock amount is required",
+                success: false
+            })
+        }
+
+        const product = await productModel.findOne({ _id: productId, seller: seller._id })
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found or you are not authorized",
+                success: false
+            })
+        }
+
+        if (variantId) {
+            // Update stock of the variant
+            const variant = product.variants.id(variantId)
+            if (!variant) {
+                return res.status(404).json({
+                    message: "Variant not found",
+                    success: false
+                })
+            }
+            variant.stock = Number(stock)
+        } else {
+            // Update product stock
+            product.stock = Number(stock)
+        }
+
+        await product.save()
+
+        return res.status(200).json({
+            message: "Stock updated successfully",
+            success: true,
+            product
+        })
+    } catch (err) {
+        console.log("Error in updating stock:", err)
+        return res.status(500).json({
+            message: "Error in updating stock",
+            success: false
+        })
+    }
+}
+
 export default {
     addProduct,
     getAllProductsOfSeller,
@@ -301,5 +354,7 @@ export default {
     getProductById,
     updateProduct,
     deleteProduct,
-    addVariantToProduct
+    addVariantToProduct,
+    updateStock
 }
+

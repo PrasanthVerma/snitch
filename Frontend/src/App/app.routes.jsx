@@ -11,6 +11,7 @@ import ProductDetails from "../Features/Products/pages/ProductDetails.jsx"
 import UpdateProduct from "../Features/Products/pages/UpdateProduct.jsx"
 import AddVariant from "../Features/Products/pages/AddVariant.jsx"
 import Cart from "../Features/Cart/pages/Cart.jsx"
+import Inventory from "../Features/Products/pages/Inventory.jsx"
 
 export const router = createBrowserRouter([
     {
@@ -43,6 +44,10 @@ export const router = createBrowserRouter([
             {
                 path:"/seller/:productId/add-variant",
                 element:<Protected role="seller"><AddVariant /></Protected>
+            },
+            {
+                path:"/seller/inventory",
+                element:<Protected role="seller"><Inventory /></Protected>
             }
         ]
     },
