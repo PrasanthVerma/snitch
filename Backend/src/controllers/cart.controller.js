@@ -1,13 +1,109 @@
 import cartModel from "../models/cart.model.js";
 import productModel from "../models/product.model.js";
 import { stockOfVariant } from "../dao/product.dao.js";
+import mongoose from "mongoose";
+
+const getAggregatedCart = async (userId) => {
+    let cartDoc = await cartModel.findOne({ user: userId })
+    if (!cartDoc) {
+        cartDoc = await cartModel.create({ user: userId })
+    }
+
+    if (cartDoc.items.length === 0) {
+        return cartDoc
+    }
+
+    const cart = (await cartModel.aggregate([
+        {
+            '$match': {
+                'user': new mongoose.Types.ObjectId(userId)
+            }
+        }, {
+            '$unwind': '$items'
+        }, {
+            '$lookup': {
+                'from': 'products',
+                'localField': 'items.product',
+                'foreignField': '_id',
+                'as': 'items.product'
+            }
+        }, {
+            '$unwind': {
+                'path': '$items.product'
+            }
+        }, {
+            '$addFields': {
+                'items.product.variants': {
+                    '$filter': {
+                        'input': { '$ifNull': ['$items.product.variants', []] },
+                        'as': 'v',
+                        'cond': { '$eq': ['$$v._id', '$items.variant'] }
+                    }
+                }
+            }
+        }, {
+            '$unwind': {
+                'path': '$items.product.variants',
+                'preserveNullAndEmptyArrays': true
+            }
+        }, {
+            // Overwrite items.price with the current price of product/variant
+            '$addFields': {
+                'items.price': {
+                    'amount': {
+                        '$ifNull': [
+                            '$items.product.variants.price.amount',
+                            '$items.product.price.amount',
+                            0
+                        ]
+                    },
+                    'currency': {
+                        '$ifNull': [
+                            '$items.product.variants.price.currency',
+                            '$items.product.price.currency',
+                            'INR'
+                        ]
+                    }
+                }
+            }
+        }, {
+            // Compute itemPrice for totalPrice calculation
+            '$addFields': {
+                'itemPrice': {
+                    'price': {
+                        '$multiply': [
+                            { '$ifNull': ['$items.quantity', 0] },
+                            '$items.price.amount'
+                        ]
+                    },
+                    'currency': '$items.price.currency'
+                }
+            }
+        }, {
+            '$group': {
+                '_id': '$_id',
+                'totalPrice': {
+                    '$sum': '$itemPrice.price'
+                },
+                'currency': {
+                    '$first': '$itemPrice.currency'
+                },
+                'items': {
+                    '$push': '$items'
+                }
+            }
+        }
+    ]))[0]
+
+    return cart || cartDoc
+}
 
 const addToCart = async (req, res) => {
     let { productId, variantId } = req.params
     const { quantity } = req.body
-    
+
     // Normalize variantId
-    if (variantId === "null" || variantId === "undefined" || !variantId) {
+    if (variantId === "null" || variantId === "undefined" || !variantId || variantId === productId) {
         variantId = null
     }
 
@@ -21,7 +117,7 @@ const addToCart = async (req, res) => {
             })
         }
 
-        // Check if variant exists (if variantId is provided)
+        // Check if variant exists
         let variant = null
         if (variantId) {
             variant = product.variants.id(variantId)
@@ -37,19 +133,19 @@ const addToCart = async (req, res) => {
 
         const cart = (await cartModel.findOne({ user: req.user._id })) || (await cartModel.create({ user: req.user._id }))
 
+        const targetVariantId = variantId || productId
+
         const isProductAlreadyInCart = cart.items.some(item => {
-            const matchesProduct = item.product.toString() === productId
-            const matchesVariant = (!item.variant && !variantId) || 
-                                   (item.variant && variantId && item.variant.toString() === variantId)
-            return matchesProduct && matchesVariant
+            return item.product.toString() === productId &&
+                item.variant &&
+                item.variant.toString() === targetVariantId
         })
 
         if (isProductAlreadyInCart) {
             const itemIndex = cart.items.findIndex(item => {
-                const matchesProduct = item.product.toString() === productId
-                const matchesVariant = (!item.variant && !variantId) || 
-                                       (item.variant && variantId && item.variant.toString() === variantId)
-                return matchesProduct && matchesVariant
+                return item.product.toString() === productId &&
+                    item.variant &&
+                    item.variant.toString() === targetVariantId
             })
 
             const quantityInCart = cart.items[itemIndex].quantity
@@ -62,12 +158,12 @@ const addToCart = async (req, res) => {
 
             cart.items[itemIndex].quantity += quantity
             await cart.save()
-            await cart.populate("items.product")
+            const aggregatedCart = await getAggregatedCart(req.user._id)
 
             return res.status(200).json({
                 message: "Cart Updated Successfully",
                 success: true,
-                cart
+                cart: aggregatedCart
             })
         }
 
@@ -83,18 +179,18 @@ const addToCart = async (req, res) => {
 
         cart.items.push({
             product: product._id,
-            variant: variantId || null,
+            variant: targetVariantId,
             quantity: quantity,
             price: finalPrice
         })
 
         await cart.save()
-        await cart.populate("items.product")
+        const aggregatedCart = await getAggregatedCart(req.user._id)
 
         return res.status(200).json({
             message: "Added to cart",
             success: true,
-            cart
+            cart: aggregatedCart
         })
 
     } catch (err) {
@@ -107,13 +203,8 @@ const addToCart = async (req, res) => {
 }
 
 const getCart = async (req, res) => {
-    const user = req.user
-
     try {
-        let cart = await cartModel.findOne({ user: user._id }).populate("items.product")
-        if (!cart) {
-            cart = await cartModel.create({ user: user._id })
-        }
+        const cart = await getAggregatedCart(req.user._id)
         return res.status(200).json({
             message: "Cart Fetched Successfully",
             success: true,
@@ -131,7 +222,7 @@ const getCart = async (req, res) => {
 const removeFromCart = async (req, res) => {
     let { productId, variantId } = req.params
 
-    if (variantId === "null" || variantId === "undefined" || !variantId) {
+    if (variantId === "null" || variantId === "undefined" || !variantId || variantId === productId) {
         variantId = null
     }
 
@@ -141,20 +232,21 @@ const removeFromCart = async (req, res) => {
             return res.status(404).json({ message: "Cart not found", success: false })
         }
 
+        const targetVariantId = variantId || productId
+
         cart.items = cart.items.filter(item => {
             const matchesProduct = item.product.toString() === productId
-            const matchesVariant = (!item.variant && !variantId) || 
-                                   (item.variant && variantId && item.variant.toString() === variantId)
+            const matchesVariant = item.variant && item.variant.toString() === targetVariantId
             return !(matchesProduct && matchesVariant)
         })
 
         await cart.save()
-        await cart.populate("items.product")
+        const aggregatedCart = await getAggregatedCart(req.user._id)
 
         return res.status(200).json({
             message: "Item removed from cart",
             success: true,
-            cart
+            cart: aggregatedCart
         })
     } catch (err) {
         console.log(err)
@@ -166,7 +258,7 @@ const updateCartQuantity = async (req, res) => {
     let { productId, variantId } = req.params
     const { quantity } = req.body
 
-    if (variantId === "null" || variantId === "undefined" || !variantId) {
+    if (variantId === "null" || variantId === "undefined" || !variantId || variantId === productId) {
         variantId = null
     }
 
@@ -176,10 +268,11 @@ const updateCartQuantity = async (req, res) => {
             return res.status(404).json({ message: "Cart not found", success: false })
         }
 
+        const targetVariantId = variantId || productId
+
         const itemIndex = cart.items.findIndex(item => {
             const matchesProduct = item.product.toString() === productId
-            const matchesVariant = (!item.variant && !variantId) || 
-                                   (item.variant && variantId && item.variant.toString() === variantId)
+            const matchesVariant = item.variant && item.variant.toString() === targetVariantId
             return matchesProduct && matchesVariant
         })
 
@@ -202,12 +295,12 @@ const updateCartQuantity = async (req, res) => {
         }
 
         await cart.save()
-        await cart.populate("items.product")
+        const aggregatedCart = await getAggregatedCart(req.user._id)
 
         return res.status(200).json({
             message: "Cart updated successfully",
             success: true,
-            cart
+            cart: aggregatedCart
         })
     } catch (err) {
         console.log(err)

@@ -38,7 +38,13 @@ const Cart = () => {
   // Helper to extract variant details
   const getVariantDetails = (item) => {
     if (!item.variant || !item.product?.variants) return null
-    return item.product.variants.find((v) => v._id === item.variant)
+    if (Array.isArray(item.product.variants)) {
+      return item.product.variants.find((v) => v._id === item.variant)
+    }
+    if (item.product.variants._id === item.variant) {
+      return item.product.variants
+    }
+    return null
   }
 
   // Helper to get image for cart item

@@ -37,7 +37,7 @@ const UpdateProduct = () => {
         const fetchProductDetails = async () => {
             try {
                 setFetching(true);
-                const product = await fetchProductById(id);
+                const product = await handleFetchProductById(id);
                 if (product) {
                     setFormData({
                         name: product.name || '',
