@@ -267,6 +267,18 @@ const Cart = () => {
                           </button>
                         </div>
 
+                        {/* Price per unit */}
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-semibold tracking-wide ${isDarkMode ? 'text-[#C5A880]' : 'text-black'}`}>
+                            {formatCurrency(priceAmount, priceCurrency)}
+                          </span>
+                          {item.quantity > 1 && (
+                            <span className={`text-[10px] tracking-wider uppercase opacity-60 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              / Unit
+                            </span>
+                          )}
+                        </div>
+
                         {/* Description snippet */}
                         <p className={`text-[11px] font-light truncate max-w-md ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                           {item.product?.description}
