@@ -32,4 +32,14 @@ router.delete("/remove/:productId/:variantId", authenticateUser, cartController.
  */
 router.put("/update/:productId/:variantId", authenticateUser, cartController.updateCartQuantity)
 
+/**
+ * @route POST /api/cart/payment/create/order
+ */
+router.post("/payment/create/order",authenticateUser,cartController.createOrderController)
+
+/**
+ * @route POST /api/cart/payment/verify/order
+ */
+router.post("/payment/verify/order",authenticateUser,cartController.verifyOrderController)
+
 export default router

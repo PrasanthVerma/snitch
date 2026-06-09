@@ -20,7 +20,9 @@ const config ={
     jwtSecret:process.env.JWT_SECRET,
     googleClientId: process.env.GOOGLE_CLIENT_ID,
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    imagekitPrivateKey: process.env.IMAGEKIT_PRIVATE_KEY
+    imagekitPrivateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+    razorpayKeyId:process.env.RAZORPAY_KEY_ID,
+    razorpayKeySecret:process.env.RAZORPAY_KEY_SECRET
 }
 
 export default config

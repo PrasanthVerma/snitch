@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { Link, useNavigate } from 'react-router'
 import { toggleTheme } from '../../../App/theme.slice.js'
 import { useCart } from '../hooks/useCart'
+import { useRazorpay } from 'react-razorpay'
 
 const Cart = () => {
   const navigate = useNavigate()
@@ -10,8 +11,11 @@ const Cart = () => {
   const { items, totalPrice } = useSelector((state) => state.cart)
   const isDarkMode = useSelector((state) => state.theme.isDarkMode)
   const user = useSelector((state) => state.auth.user)
-  
-  const { handleGetCart, handleRemoveFromCart, handleUpdateCartQuantity } = useCart()
+  const { error, isLoading, Razorpay } = useRazorpay()
+  const [isProcessing, setIsProcessing] = useState(false)
+  const isRazorpayLoading = isLoading && !window.Razorpay
+
+  const { handleGetCart, handleRemoveFromCart, handleUpdateCartQuantity, handleCreateCartOrder, handleVerifyCartOrder } = useCart()
 
   useEffect(() => {
     // If not logged in, redirect to login
@@ -35,36 +39,10 @@ const Cart = () => {
     }
   }
 
-  // Helper to extract variant details
-  const getVariantDetails = (item) => {
-    if (!item.variant || !item.product?.variants) return null
-    if (Array.isArray(item.product.variants)) {
-      return item.product.variants.find((v) => v._id === item.variant)
-    }
-    if (item.product.variants._id === item.variant) {
-      return item.product.variants
-    }
-    return null
-  }
-
   // Helper to get image for cart item
   const getItemImage = (item) => {
-    const variant = getVariantDetails(item)
-    if (variant && variant.images && variant.images.length > 0) {
-      return variant.images[0].url
-    }
-    if (item.product?.images && item.product.images.length > 0) {
-      return item.product.images[0].url
-    }
-    return '/luxora_login_bg.png'
-  }
-
-  // Helper to get display price
-  const getItemPrice = (item) => {
-    const variant = getVariantDetails(item)
-    const amount = variant ? (variant.price?.amount || 0) : (item.price?.amount || 0)
-    const currency = variant ? (variant.price?.currency || 'INR') : (item.price?.currency || 'INR')
-    return { amount, currency }
+    const images = item.product?.variants?.images || item.product?.images
+    return images?.[0]?.url || '/luxora_login_bg.png'
   }
 
   const handleQuantityIncrement = (item) => {
@@ -79,32 +57,70 @@ const Cart = () => {
     }
   }
 
-  // Calculations for Order Summary
-  const subtotal = totalPrice
-  const discount = Math.round(subtotal * 0.15) // 15% promotional discount
-  const delivery = subtotal > 1499 ? 0 : 99
-  const totalPayable = subtotal - discount + delivery
+
+  async function handleCheckout() {
+    if (isRazorpayLoading) return;
+    if (error) {
+      console.error("Razorpay SDK failed to load:", error);
+      alert("Failed to load payment gateway. Please try again later.");
+      return;
+    }
+    if (isProcessing) return;
+
+    setIsProcessing(true)
+    try {
+      const order = await handleCreateCartOrder()
+      if (!order) {
+        alert("Failed to create order. Please try again.");
+        return;
+      }
+
+      const options = {
+        key: "rzp_test_SzX2QEFtFex23l",
+        amount: order.amount, // Amount in paise
+        currency: order.currency,
+        name: "Luxora",
+        description: "Test Transaction",
+        order_id: order.id, // Generate order_id on server
+        handler: async (response) => {
+          const isValid = await handleVerifyCartOrder(response)
+          if (isValid) {
+            navigate(`/order-success?order_id=${response?.razorpay_order_id}`)
+          }
+        },
+        prefill: {
+          name: user?.fullname,
+          email: user?.email,
+          contact: user?.contact,
+        },
+      };
+
+      const razorpayInstance = new Razorpay(options)
+      razorpayInstance.open();
+    } catch (err) {
+      console.error("Checkout error:", err);
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   return (
-    <div className={`min-h-screen flex flex-col font-luxury-sans transition-colors duration-500 ${
-      isDarkMode ? 'bg-[#0A0A0A] text-white' : 'bg-[#FAFAFA] text-[#111111]'
-    }`}>
-      
+    <div className={`min-h-screen flex flex-col font-luxury-sans transition-colors duration-500 ${isDarkMode ? 'bg-[#0A0A0A] text-white' : 'bg-[#FAFAFA] text-[#111111]'
+      }`}>
+
       {/* Announcement top bar */}
       <div className="w-full bg-[#111111] text-[#E5E5EA] py-2 px-4 text-center text-[10px] font-semibold tracking-[0.2em] uppercase select-none">
         FREE SHIPPING ON ORDERS ABOVE {formatCurrency(1499, 'INR')} | EASY RETURNS
       </div>
 
       {/* Global Navigation Header */}
-      <header className={`w-full sticky top-0 z-50 border-b transition-colors duration-500 backdrop-blur-md ${
-        isDarkMode ? 'bg-[#0A0A0A]/90 border-white/5' : 'bg-[#FAFAFA]/90 border-[#E5E5EA]'
-      }`}>
+      <header className={`w-full sticky top-0 z-50 border-b transition-colors duration-500 backdrop-blur-md ${isDarkMode ? 'bg-[#0A0A0A]/90 border-white/5' : 'bg-[#FAFAFA]/90 border-[#E5E5EA]'
+        }`}>
         <div className="max-w-[1240px] mx-auto px-6 sm:px-8 md:px-12 py-5 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex flex-col select-none group">
-            <h1 className={`text-xl sm:text-2xl font-luxury-serif font-light tracking-[0.18em] uppercase ${
-              isDarkMode ? 'text-white' : 'text-black'
-            }`}>
+            <h1 className={`text-xl sm:text-2xl font-luxury-serif font-light tracking-[0.18em] uppercase ${isDarkMode ? 'text-white' : 'text-black'
+              }`}>
               LUXORA
             </h1>
             <span className="text-[7px] font-medium tracking-[0.32em] text-[#C5A880] uppercase mt-0.5">
@@ -118,9 +134,8 @@ const Cart = () => {
               <Link
                 key={navLink}
                 to="/"
-                className={`transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
-                }`}
+                className={`transition-colors duration-300 ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                  }`}
               >
                 {navLink}
               </Link>
@@ -132,11 +147,10 @@ const Cart = () => {
             {/* Theme Toggle */}
             <button
               onClick={() => dispatch(toggleTheme())}
-              className={`p-2 rounded-full border transition-all duration-300 ${
-                isDarkMode
-                  ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E]'
-                  : 'bg-white border-[#E5E5EA] text-[#636366] hover:bg-[#F2F2F7]'
-              }`}
+              className={`p-2 rounded-full border transition-all duration-300 ${isDarkMode
+                ? 'bg-[#151515] border-[#2C2C2E] text-yellow-500 hover:bg-[#1E1E1E]'
+                : 'bg-white border-[#E5E5EA] text-[#636366] hover:bg-[#F2F2F7]'
+                }`}
               aria-label="Toggle Theme"
             >
               {isDarkMode ? (
@@ -153,11 +167,10 @@ const Cart = () => {
             {user?.role === 'seller' && (
               <Link
                 to="/seller/dashboard"
-                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 hidden sm:inline-flex ${
-                  isDarkMode
-                    ? 'bg-[#151515] border border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
-                    : 'bg-white border border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 hidden sm:inline-flex ${isDarkMode
+                  ? 'bg-[#151515] border border-[#2C2C2E] text-[#C5A880] hover:bg-[#1E1E1E]'
+                  : 'bg-white border border-[#E5E5EA] text-black hover:bg-[#F2F2F7]'
+                  }`}
               >
                 Seller Portal
               </Link>
@@ -168,12 +181,11 @@ const Cart = () => {
 
       {/* Main cart container */}
       <main className="max-w-[1240px] mx-auto w-full px-6 sm:px-8 md:px-12 py-10 flex-1 flex flex-col gap-8">
-        
+
         {/* Breadcrumb / Page Title */}
         <div className="flex flex-col gap-2">
-          <nav className={`text-[10px] uppercase tracking-widest font-semibold flex items-center gap-2 ${
-            isDarkMode ? 'text-gray-500' : 'text-gray-400'
-          }`}>
+          <nav className={`text-[10px] uppercase tracking-widest font-semibold flex items-center gap-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'
+            }`}>
             <Link to="/" className="hover:text-[#C5A880] transition-colors">Home</Link>
             <span>/</span>
             <span className={isDarkMode ? 'text-white' : 'text-black'}>Your Cart</span>
@@ -185,9 +197,8 @@ const Cart = () => {
 
         {items.length === 0 ? (
           /* Empty state */
-          <div className={`flex-1 flex flex-col items-center justify-center py-20 px-4 rounded-3xl border transition-all duration-300 ${
-            isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-          }`}>
+          <div className={`flex-1 flex flex-col items-center justify-center py-20 px-4 rounded-3xl border transition-all duration-300 ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+            }`}>
             <div className="p-6 rounded-full bg-[#C5A880]/10 border border-[#C5A880]/20 text-[#C5A880] mb-6 animate-pulse">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -201,11 +212,10 @@ const Cart = () => {
             </p>
             <Link
               to="/"
-              className={`px-8 py-3.5 rounded-xl font-medium text-xs tracking-widest uppercase transition-all duration-300 select-none ${
-                isDarkMode
-                  ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5] shadow-[0_4px_16px_rgba(197,168,128,0.25)]'
-                  : 'bg-black text-white hover:bg-[#1C1C1E] shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
-              }`}
+              className={`px-8 py-3.5 rounded-xl font-medium text-xs tracking-widest uppercase transition-all duration-300 select-none ${isDarkMode
+                ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5] shadow-[0_4px_16px_rgba(197,168,128,0.25)]'
+                : 'bg-black text-white hover:bg-[#1C1C1E] shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
+                }`}
             >
               Explore Catalog
             </Link>
@@ -213,17 +223,18 @@ const Cart = () => {
         ) : (
           /* Cart content */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
+
             {/* Left side: Cart Items List (8 Columns) */}
             <div className="lg:col-span-8 flex flex-col gap-5">
               {items.map((item, idx) => {
                 const itemImg = getItemImage(item)
-                const { amount: priceAmount, currency: priceCurrency } = getItemPrice(item)
-                const variantDetails = getVariantDetails(item)
+                const priceAmount = item.price?.amount || 0
+                const priceCurrency = item.price?.currency || 'INR'
+                const variantDetails = item.product?.variants
 
                 // Get dynamic attributes mapped to text (e.g. Size: XL | Color: Black)
-                const rawAttrs = variantDetails?.attributes instanceof Map 
-                  ? Object.fromEntries(variantDetails.attributes) 
+                const rawAttrs = variantDetails?.attributes instanceof Map
+                  ? Object.fromEntries(variantDetails.attributes)
                   : (variantDetails?.attributes || {})
                 const attributeText = Object.entries(rawAttrs)
                   .map(([key, val]) => `${key}: ${val}`)
@@ -232,14 +243,12 @@ const Cart = () => {
                 return (
                   <article
                     key={idx}
-                    className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 flex gap-4 sm:gap-6 ${
-                      isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-                    }`}
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 flex gap-4 sm:gap-6 ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+                      }`}
                   >
                     {/* Item Image */}
-                    <div className={`w-20 sm:w-24 aspect-[3/4] rounded-xl overflow-hidden shrink-0 border select-none ${
-                      isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-gray-100 border-[#E5E5EA]'
-                    }`}>
+                    <div className={`w-20 sm:w-24 aspect-[3/4] rounded-xl overflow-hidden shrink-0 border select-none ${isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-gray-100 border-[#E5E5EA]'
+                      }`}>
                       <img
                         src={itemImg}
                         alt={item.product?.name || 'Product Image'}
@@ -295,9 +304,8 @@ const Cart = () => {
                       {/* Quantity & Price */}
                       <div className="flex justify-between items-end mt-4">
                         {/* Quantity Counter Widget */}
-                        <div className={`flex items-center border rounded-xl overflow-hidden ${
-                          isDarkMode ? 'border-[#2C2C2E] bg-[#151515]' : 'border-[#E5E5EA] bg-white'
-                        }`}>
+                        <div className={`flex items-center border rounded-xl overflow-hidden ${isDarkMode ? 'border-[#2C2C2E] bg-[#151515]' : 'border-[#E5E5EA] bg-white'
+                          }`}>
                           <button
                             onClick={() => handleQuantityDecrement(item)}
                             className={`w-8 h-8 flex items-center justify-center text-sm font-semibold transition-colors hover:bg-red-500/10 hover:text-red-500`}
@@ -335,51 +343,48 @@ const Cart = () => {
 
             {/* Right side: Price / Order Summary (4 Columns) */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              <section className={`p-6 rounded-2xl border transition-all duration-300 space-y-6 ${
-                isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-              }`}>
-                <h3 className={`text-xs font-bold tracking-widest uppercase pb-3 border-b border-dashed border-gray-500/10 ${
-                  isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'
+              <section className={`p-6 rounded-2xl border transition-all duration-300 space-y-6 ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
                 }`}>
+                <h3 className={`text-xs font-bold tracking-widest uppercase pb-3 border-b border-dashed border-gray-500/10 ${isDarkMode ? 'text-[#AEAEB2]' : 'text-[#48484A]'
+                  }`}>
                   Price Details
                 </h3>
 
                 <div className="space-y-4 text-xs font-light">
                   {/* Total MRP */}
-                  <div className="flex justify-between">
+                  {/* <div className="flex justify-between">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Price ({items.length} items)</span>
                     <span className="font-mono">{formatCurrency(subtotal)}</span>
-                  </div>
+                  </div> */}
 
                   {/* Promo Discount */}
-                  <div className="flex justify-between">
+                  {/* <div className="flex justify-between">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Luxora Discount (15%)</span>
                     <span className="text-[#C5A880] font-mono">-{formatCurrency(discount)}</span>
-                  </div>
+                  </div> */}
 
                   {/* Delivery Charges */}
-                  <div className="flex justify-between">
+                  {/* <div className="flex justify-between">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Delivery Fee</span>
                     {delivery === 0 ? (
                       <span className="text-emerald-500 font-semibold uppercase tracking-wider">Free</span>
                     ) : (
                       <span className="font-mono">{formatCurrency(delivery)}</span>
-                    )}
-                  </div>
+                    )} */}
+                  {/* </div> */}
                 </div>
 
                 {/* Total amount payable */}
                 <div className="pt-4 border-t border-dashed border-gray-500/10 flex justify-between items-baseline">
                   <span className={`text-sm font-semibold uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-black'}`}>Total Amount</span>
                   <span className={`text-xl font-bold tracking-wide ${isDarkMode ? 'text-[#C5A880]' : 'text-black'}`}>
-                    {formatCurrency(totalPayable)}
+                    {totalPrice}
                   </span>
                 </div>
 
                 {/* Secure Guarantee Badge */}
-                <div className={`p-3 rounded-xl border flex items-center gap-2.5 transition-colors duration-300 ${
-                  isDarkMode ? 'bg-[#151515] border-[#2C2C2E]' : 'bg-[#FAFAFA] border-[#E5E5EA]'
-                }`}>
+                <div className={`p-3 rounded-xl border flex items-center gap-2.5 transition-colors duration-300 ${isDarkMode ? 'bg-[#151515] border-[#2C2C2E]' : 'bg-[#FAFAFA] border-[#E5E5EA]'
+                  }`}>
                   <span className="text-base select-none">🔒</span>
                   <div className="flex flex-col">
                     <span className={`text-[9px] font-bold uppercase tracking-wider leading-none ${isDarkMode ? 'text-white' : 'text-black'}`}>100% Secure Transaction</span>
@@ -390,13 +395,15 @@ const Cart = () => {
                 {/* Place Order CTA Button */}
                 <button
                   type="button"
-                  className={`w-full py-4 px-6 rounded-xl font-semibold text-xs tracking-widest uppercase transition-all duration-300 flex justify-center items-center gap-2 select-none cursor-pointer ${
-                    isDarkMode
+                  disabled={isRazorpayLoading || isProcessing}
+                  onClick={() => { handleCheckout() }}
+                  className={`w-full py-4 px-6 rounded-xl font-semibold text-xs tracking-widest uppercase transition-all duration-300 flex justify-center items-center gap-2 select-none cursor-pointer ${(isRazorpayLoading || isProcessing) ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${isDarkMode
                       ? 'bg-[#C5A880] text-[#0A0A0A] hover:bg-[#D9C3A5] shadow-[0_4px_16px_rgba(197,168,128,0.25)]'
                       : 'bg-black text-white hover:bg-[#1C1C1E] shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
-                  }`}
+                    }`}
                 >
-                  Place Order
+                  {isProcessing ? 'Processing...' : isRazorpayLoading ? 'Loading Checkout...' : 'Proceed To Checkout'}
                 </button>
               </section>
             </div>
@@ -406,9 +413,8 @@ const Cart = () => {
       </main>
 
       {/* Footer copyright */}
-      <footer className={`w-full py-8 px-6 border-t mt-auto text-center text-[10px] text-gray-500 uppercase tracking-widest ${
-        isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
-      }`}>
+      <footer className={`w-full py-8 px-6 border-t mt-auto text-center text-[10px] text-gray-500 uppercase tracking-widest ${isDarkMode ? 'bg-[#0D0D0D] border-white/5' : 'bg-white border-[#E5E5EA]'
+        }`}>
         © 2026 LUXORA PREMIUM CLOTHING. ALL RIGHTS RESERVED.
       </footer>
     </div>

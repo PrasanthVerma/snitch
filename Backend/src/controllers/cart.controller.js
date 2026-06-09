@@ -2,101 +2,11 @@ import cartModel from "../models/cart.model.js";
 import productModel from "../models/product.model.js";
 import { stockOfVariant } from "../dao/product.dao.js";
 import mongoose from "mongoose";
-
-const getAggregatedCart = async (userId) => {
-    let cartDoc = await cartModel.findOne({ user: userId })
-    if (!cartDoc) {
-        cartDoc = await cartModel.create({ user: userId })
-    }
-
-    if (cartDoc.items.length === 0) {
-        return cartDoc
-    }
-
-    const cart = (await cartModel.aggregate([
-        {
-            '$match': {
-                'user': new mongoose.Types.ObjectId(userId)
-            }
-        }, {
-            '$unwind': '$items'
-        }, {
-            '$lookup': {
-                'from': 'products',
-                'localField': 'items.product',
-                'foreignField': '_id',
-                'as': 'items.product'
-            }
-        }, {
-            '$unwind': {
-                'path': '$items.product'
-            }
-        }, {
-            '$addFields': {
-                'items.product.variants': {
-                    '$filter': {
-                        'input': { '$ifNull': ['$items.product.variants', []] },
-                        'as': 'v',
-                        'cond': { '$eq': ['$$v._id', '$items.variant'] }
-                    }
-                }
-            }
-        }, {
-            '$unwind': {
-                'path': '$items.product.variants',
-                'preserveNullAndEmptyArrays': true
-            }
-        }, {
-            // Overwrite items.price with the current price of product/variant
-            '$addFields': {
-                'items.price': {
-                    'amount': {
-                        '$ifNull': [
-                            '$items.product.variants.price.amount',
-                            '$items.product.price.amount',
-                            0
-                        ]
-                    },
-                    'currency': {
-                        '$ifNull': [
-                            '$items.product.variants.price.currency',
-                            '$items.product.price.currency',
-                            'INR'
-                        ]
-                    }
-                }
-            }
-        }, {
-            // Compute itemPrice for totalPrice calculation
-            '$addFields': {
-                'itemPrice': {
-                    'price': {
-                        '$multiply': [
-                            { '$ifNull': ['$items.quantity', 0] },
-                            '$items.price.amount'
-                        ]
-                    },
-                    'currency': '$items.price.currency'
-                }
-            }
-        }, {
-            '$group': {
-                '_id': '$_id',
-                'totalPrice': {
-                    '$sum': '$itemPrice.price'
-                },
-                'currency': {
-                    '$first': '$itemPrice.currency'
-                },
-                'items': {
-                    '$push': '$items'
-                }
-            }
-        }
-    ]))[0]
-
-    return cart || cartDoc
-}
+import { createOrder } from "../services/payment.service.js"
+import paymentModel from "../models/payment.model.js"
+import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js";
+import { getAggregatedCart } from "../dao/cart.dao.js"
+import config from "../config/config.js"
 
 const addToCart = async (req, res) => {
     let { productId, variantId } = req.params
@@ -308,9 +218,104 @@ const updateCartQuantity = async (req, res) => {
     }
 }
 
+const createOrderController = async (req, res) => {
+
+    const user = req.user._id
+
+    const cart = await getAggregatedCart(user)
+
+    if (!cart) {
+        return res.status(404).json({
+            message: "Cart is empty",
+            success: false
+        })
+    }
+
+    const order = await createOrder({ amount: cart.totalPrice, currency: cart.currency })
+
+    const payment = await paymentModel.create({
+        user: user,
+        razorpay: {
+            orderId: order.id,
+        },
+        price: {
+            amount: cart.totalPrice,
+            currency: cart.currency
+        },
+        orderItems: cart.items.map(item => ({
+            title: item.product.name,
+            productId: item.product._id,
+            variantId: item.variant,
+            quantity: item.quantity,
+            images: item.product.variants?.images || item.product.images,
+            description: item.product.description,
+            price: item.price
+        }))
+
+    })
+
+    return res.status(200).json({
+        message: "Order created Successfully",
+        success: true,
+        order
+    })
+}
+
+const verifyOrderController = async (req, res) => {
+    const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature
+    } = req.body
+
+    const payment = await paymentModel.findOne({
+        "razorpay.orderId":razorpay_order_id,
+        status:"pending"
+    })
+
+    if(!payment){
+        return res.status(404).json({
+            message: "Payment not found",
+            success: false
+        })
+    }
+
+    const isPaymentValid = validatePaymentVerification({
+        order_id:razorpay_order_id,
+        payment_id:razorpay_payment_id
+    },razorpay_signature,config.razorpayKeySecret)
+
+    if(!isPaymentValid){
+        payment.status = "failed"
+        await payment.save()
+
+
+        return res.status(401).json({
+            message:"Invalid Payment",
+            success:false
+        })
+    }
+
+    payment.status = "paid"
+    payment.razorpay.paymentId = razorpay_payment_id
+    payment.razorpay.signature = razorpay_signature
+
+    await payment.save()
+
+
+    return res.status(200).json({
+        message: "Payment Verified Successfully",
+        success: true
+    })
+
+    
+} 
+
 export default {
     addToCart,
     getCart,
     removeFromCart,
-    updateCartQuantity
+    updateCartQuantity,
+    createOrderController,
+    verifyOrderController
 }

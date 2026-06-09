@@ -1,4 +1,4 @@
-import { addToCart, getCart, removeFromCart, updateCartQuantity } from '../service/cart.api.js'
+import { addToCart, verifyCartOrder, getCart, removeFromCart, updateCartQuantity , createCartOrder } from '../service/cart.api.js'
 import { useDispatch } from 'react-redux'
 import { setCart } from '../store/cart.slice'
 
@@ -41,10 +41,30 @@ export const useCart = () => {
         }
     }
 
+    const handleCreateCartOrder = async ()=>{
+        try {
+            const data = await createCartOrder()
+            return data.order
+        } catch (error) {
+            console.log("Error in creating order", error)
+        }
+    }
+
+    const handleVerifyCartOrder = async({razorpay_order_id,razorpay_payment_id,razorpay_signature})=>{
+        try {
+            const data = await verifyCartOrder({razorpay_order_id,razorpay_payment_id,razorpay_signature})
+            return data.success
+        } catch (error) {
+            console.log("Error in verifying order", error)
+        }
+    }
+
     return {
         handleAddToCart,
         handleGetCart,
         handleRemoveFromCart,
-        handleUpdateCartQuantity
+        handleUpdateCartQuantity,
+        handleCreateCartOrder,
+        handleVerifyCartOrder
     }
 }
